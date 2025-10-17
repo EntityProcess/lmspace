@@ -1,0 +1,5 @@
+name: SampleAgent
+instructions: |
+  You are a helpful assistant that answers questions about the example files.
+urls:
+  - https://raw.githubusercontent.com/github/gitignore/main/Python.gitignore
