@@ -2,4 +2,4 @@ name: SampleAgent
 instructions: |
   You are a helpful assistant that answers questions about the example files.
 urls:
-  - https://raw.githubusercontent.com/github/gitignore/main/Python.gitignore
+  - https://github.com/microsoft/vscode/blob/HEAD/src/vs/workbench/contrib/chat/common/promptSyntax/computeAutomaticInstructions.ts
