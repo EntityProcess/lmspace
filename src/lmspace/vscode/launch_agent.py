@@ -175,16 +175,17 @@ def launch_agent(
         # Generate timestamp for response file
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
         messages_dir = subagent_dir / "messages"
-        response_file = messages_dir / f"{timestamp}_res.md"
+        response_file_tmp = messages_dir / f"{timestamp}_res.tmp.md"
+        response_file_final = messages_dir / f"{timestamp}_res.md"
         
         # Create JSON prompt with user query and save instructions
         json_prompt = {
             "user_query": user_query,
             "instructions": {
                 "save_responses": True,
-                "response_file_path": str(response_file),
+                "response_file_path": str(response_file_tmp),
                 "format": "markdown",
-                "note": "Save all your responses to the specified file path as you work through the task."
+                "note": "Save all your responses to the specified file path as you work through the task. When you have completely finished the task, rename this file by removing the '.tmp' extension."
             }
         }
         json_prompt_str = json.dumps(json_prompt, indent=2)
@@ -195,7 +196,7 @@ def launch_agent(
                 {
                     "success": True,
                     "subagent_name": subagent_dir.name,
-                    "response_file": str(response_file),
+                    "response_file": str(response_file_final),
                 }
             )
         )
