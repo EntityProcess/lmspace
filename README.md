@@ -14,13 +14,6 @@ Manage isolated VS Code workspaces for parallel agent development sessions:
 
 The project uses `uv` for dependency and environment management.
 
-## Repository Layout
-
-- `src/lmspace/` - Package sources
-- `tests/` - Unit tests
-- `configs/` - Example YAML configs
-- `docs/` - Design and planning documents
-
 ## Prerequisites
 
 - Python 3.12+
