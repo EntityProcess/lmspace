@@ -161,6 +161,7 @@ def launch_agent(
     *,
     extra_attachments: Optional[Sequence[Path]] = None,
     dry_run: bool = False,
+    keep_messages: bool = False,
 ) -> int:
     """Launch an agent in an isolated subagent.
     
@@ -171,6 +172,7 @@ def launch_agent(
         extra_attachments: Additional attachment paths that should be forwarded
             to the launched chat.
         dry_run: When True, report planned actions without launching VS Code.
+        keep_messages: When True, skip cleanup of message files (req.md and res.md).
     
     Returns:
         Exit code (0 for success, non-zero for failure)
@@ -307,12 +309,23 @@ Do not proceed to step 2 until your response is completely written to the tempor
 
         response_received = wait_for_response_output(response_file_tmp, response_file_final)
         
-        # Remove the lock file after response is received
+        # Clean up after response is received
         if not dry_run:
+            # Remove the lock file
             try:
                 remove_subagent_lock(subagent_dir)
             except Exception as e:
                 print(f"warning: Failed to remove subagent lock: {e}", file=sys.stderr)
+            
+            # Remove message files unless keep_messages is True
+            if not keep_messages:
+                try:
+                    req_file.unlink(missing_ok=True)
+                    response_file_final.unlink(missing_ok=True)
+                    # Also remove tmp file if it still exists
+                    response_file_tmp.unlink(missing_ok=True)
+                except Exception as e:
+                    print(f"warning: Failed to clean up message files: {e}", file=sys.stderr)
         
         if not response_received:
             return 1
@@ -359,12 +372,18 @@ def main() -> int:
         action="store_true",
         help="Print what would be done without making changes",
     )
+    parser.add_argument(
+        "--keep-messages",
+        action="store_true",
+        help="Keep message files (req.md and res.md) after completion",
+    )
     args = parser.parse_args()
     return launch_agent(
         args.query,
         args.agent_config_path,
         extra_attachments=args.attachment,
         dry_run=args.dry_run,
+        keep_messages=args.keep_messages,
     )
 
 
