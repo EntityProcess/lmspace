@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import subprocess
 import sys
+import tempfile
+import time
+from datetime import datetime
 from pathlib import Path
 from typing import Optional, Sequence
 
@@ -55,6 +59,8 @@ def copy_agent_config(
     to the subagent directory. Falls back to default template for workspace
     if not found in agent template directory.
     
+    Also creates a messages folder for storing responses.
+    
     Raises FileNotFoundError if chatmode template is missing.
     """
     chatmode_src = agent_template_dir / "subagent.chatmode.md"
@@ -76,9 +82,14 @@ def copy_agent_config(
     shutil.copy2(chatmode_src, chatmode_dst)
     shutil.copy2(workspace_src, workspace_dst)
     
+    # Create messages folder for storing responses
+    messages_dir = subagent_dir / "messages"
+    messages_dir.mkdir(exist_ok=True)
+    
     return {
         "chatmode": str(chatmode_dst.resolve()),
         "workspace": str(workspace_dst.resolve()),
+        "messages_dir": str(messages_dir.resolve()),
     }
 
 
@@ -161,12 +172,30 @@ def launch_agent(
 
         attachment_paths: list[str] = resolved_extra
         
+        # Generate timestamp for response file
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        messages_dir = subagent_dir / "messages"
+        response_file = messages_dir / f"{timestamp}_res.md"
+        
+        # Create JSON prompt with user query and save instructions
+        json_prompt = {
+            "user_query": user_query,
+            "instructions": {
+                "save_responses": True,
+                "response_file_path": str(response_file),
+                "format": "markdown",
+                "note": "Save all your responses to the specified file path as you work through the task."
+            }
+        }
+        json_prompt_str = json.dumps(json_prompt, indent=2)
+        
         # Report the launched subagent in a minimal JSON payload
         print(
             json.dumps(
                 {
                     "success": True,
                     "subagent_name": subagent_dir.name,
+                    "response_file": str(response_file),
                 }
             )
         )
@@ -177,22 +206,38 @@ def launch_agent(
                 workspace_path = str(
                     (subagent_dir / "subagent.code-workspace").resolve()
                 )
-                attachment_args = " ".join(
-                    f'-a "{attachment}"' for attachment in attachment_paths
-                )
-                chat_command = "code -r chat -m subagent"
-                if attachment_args:
-                    chat_command += f" {attachment_args}"
-                chat_command += f' "{user_query}"'
-
-                # Use PowerShell to launch code commands
-                ps_cmd = (
-                    f'code "{workspace_path}"; '
-                    f'Start-Sleep -Seconds 1; '
-                    f'code "{workspace_path}"; '
-                    f"{chat_command}"
-                )
-                subprocess.Popen(["pwsh", "-Command", ps_cmd])
+                
+                # Use shell=True on all platforms to find 'code' in PATH
+                # This handles code.cmd on Windows and code script on Unix
+                
+                # Open the workspace first
+                subprocess.Popen(f'code "{workspace_path}"', shell=True)
+                
+                # Small delay to let workspace open
+                time.sleep(1)
+                
+                # Open workspace again to ensure it's focused
+                subprocess.Popen(f'code "{workspace_path}"', shell=True)
+                
+                # Write JSON to a temp file in the messages directory to avoid shell escaping issues
+                json_file = messages_dir / f"{timestamp}_req.json"
+                json_file.write_text(json_prompt_str, encoding='utf-8')
+                
+                # Build chat command with JSON file as attachment
+                chat_cmd = f'code -r chat -m subagent'
+                
+                # Add attachments
+                for attachment in attachment_paths:
+                    chat_cmd += f' -a "{attachment}"'
+                
+                # Add the JSON file as an attachment
+                chat_cmd += f' -a "{json_file}"'
+                
+                # Add a simple prompt that references the JSON file
+                chat_cmd += f' "Read the attached {json_file.name} file for your task and instructions."'
+                
+                subprocess.Popen(chat_cmd, shell=True)
+                    
             except Exception as e:
                 print(f"warning: Failed to launch VS Code: {e}", file=sys.stderr)
         

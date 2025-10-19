@@ -66,17 +66,49 @@ The tool is now available globally via the `lmspace` command.
     from the agent config into the claimed subagent directory before starting
     VS Code, but it does not attach them to the chat session automatically.
   - Additional attachments can be passed with `--attachment <path>` (repeatable).
-- The launcher emits a compact JSON payload, currently limited to
-  `{"success": true, "subagent_name": "subagent-1"}` (or an `error`
-  message). Wrapper prompts should read the JSON, report the assigned
-  workspace, and stop there—the script opens VS Code on its own.
+- The launcher emits a compact JSON payload that includes:
+  - `success`: Boolean indicating launch success
+  - `subagent_name`: Name of the claimed subagent directory (e.g., "subagent-1")
+  - `response_file`: Path where the agent will save its responses
+  
+  Example success response:
+  ```json
+  {
+    "success": true,
+    "subagent_name": "subagent-1",
+    "response_file": "C:\\Users\\...\\subagent-1\\messages\\20251019143022_res.md"
+  }
+  ```
+  
+  Wrapper prompts should read the JSON, report the assigned workspace and
+  response file location, and stop there—the script opens VS Code on its own.
 
 ### Prompt Context
 
 - Gather a free-form query string before launch so the chat title reflects the
-  user’s intent. The `launch-agent.py` CLI accepts the query as a positional
-  argument and relays it unchanged to `code chat`.
-- Combine the wrapper prompt’s description with any important notes from the
+  user's intent. The `launch-agent.py` CLI accepts the query as a positional
+  argument and relays it as a JSON-formatted prompt to `code chat`.
+- The launcher automatically generates a JSON prompt structure that includes:
+  - The user's original query
+  - Instructions to save all responses to a timestamped file in the subagent's
+    `messages` folder (format: `YYYYMMDDHHMMSS_res.md`)
+  - Response format specifications (markdown)
+- Example JSON prompt structure:
+  ```json
+  {
+    "user_query": "Help me debug this issue",
+    "instructions": {
+      "save_responses": true,
+      "response_file_path": "/path/to/subagent/messages/20251019143022_res.md",
+      "format": "markdown",
+      "note": "Save all your responses to the specified file path as you work through the task."
+    }
+  }
+  ```
+- The `messages` folder is automatically created when the agent configuration
+  is copied to the subagent directory, providing a dedicated location for
+  conversation history and agent responses.
+- Combine the wrapper prompt's description with any important notes from the
   associated `subagent.chatmode.md` when reporting launch status back to users.
 
 ### Cross-Repository Usage

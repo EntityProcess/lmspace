@@ -79,8 +79,11 @@ def test_copy_agent_config(agent_template: Path, tmp_path: Path) -> None:
 
     assert "chatmode" in result
     assert "workspace" in result
+    assert "messages_dir" in result
     assert (subagent / "subagent.chatmode.md").exists()
     assert (subagent / "subagent.code-workspace").exists()
+    assert (subagent / "messages").exists()
+    assert (subagent / "messages").is_dir()
 
     # Check content was copied
     chatmode_content = (subagent / "subagent.chatmode.md").read_text()
@@ -101,7 +104,7 @@ def test_copy_agent_config_missing_chatmode(tmp_path: Path) -> None:
 
 
 def test_copy_agent_config_missing_workspace(tmp_path: Path) -> None:
-    """Test error when workspace file is missing."""
+    """Test fallback to default workspace when template workspace is missing."""
     template = tmp_path / "template"
     template.mkdir()
     (template / "subagent.chatmode.md").write_text("# Test\n")
@@ -109,8 +112,15 @@ def test_copy_agent_config_missing_workspace(tmp_path: Path) -> None:
     subagent = tmp_path / "subagent-1"
     subagent.mkdir()
 
-    with pytest.raises(FileNotFoundError, match="workspace not found"):
-        copy_agent_config(template, subagent)
+    # Should succeed by falling back to default workspace template
+    result = copy_agent_config(template, subagent)
+    
+    assert "chatmode" in result
+    assert "workspace" in result
+    assert "messages_dir" in result
+    assert (subagent / "subagent.chatmode.md").exists()
+    assert (subagent / "subagent.code-workspace").exists()
+    assert (subagent / "messages").exists()
 
 
 def test_create_subagent_lock(tmp_path: Path) -> None:
