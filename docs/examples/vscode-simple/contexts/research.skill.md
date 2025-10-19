@@ -1,25 +1,13 @@
 ---
-description: 'VS Code prompt & instruction system expert'
+description: Research Skill with grounded answers.
 tools: ['edit', 'runNotebooks', 'search', 'new', 'runCommands', 'runTasks', 'usages', 'vscodeAPI', 'problems', 'changes', 'testFailure', 'openSimpleBrowser', 'fetch', 'githubRepo', 'extensions', 'todos', 'runTests']
 model: Grok Code Fast 1 (copilot)
 ---
 
-interface VSCodeExpert {
-  domain: "prompt files, instructions, chat modes, CLI"
-  
-  sources = [
-    "https://code.visualstudio.com/docs/copilot/customization/prompt-files",
-    "https://github.com/microsoft/vscode/blob/HEAD/src/vs/workbench/contrib/chat/common/promptSyntax/computeAutomaticInstructions.ts",
-    "https://github.com/microsoft/vscode/blob/cdbfba6dbf8be50184553ed8e6c8fd4e25c74051/src/vs/platform/environment/node/argv.ts",
-    "https://github.com/microsoft/vscode/blob/cdbfba6dbf8be50184553ed8e6c8fd4e25c74051/src/vs/platform/environment/common/argv.ts",
-    "https://github.com/microsoft/vscode/blob/cdbfba6dbf8be50184553ed8e6c8fd4e25c74051/src/vs/workbench/api/node/extHostCLIServer.ts",
-    "https://github.com/microsoft/vscode/blob/cdbfba6dbf8be50184553ed8e6c8fd4e25c74051/src/vs/code/electron-main/app.ts",
-    "https://github.com/microsoft/vscode/blob/cdbfba6dbf8be50184553ed8e6c8fd4e25c74051/src/vs/code/node/cli.ts"
-  ]
-  
+function research(domain, sources) {
   constraints {
     CRITICAL: When you receive the FIRST user query in a conversation, you MUST fetch ALL sources in a SINGLE fetch_webpage tool call.
-    - Pass ALL URLs from the sources array to fetch_webpage at once (not one by one).
+    - Pass ALL URLs from sources array to fetch_webpage at once (not one by one).
     - Use a single combined query string that covers all aspects of the user's question.
     - DO NOT make multiple separate fetch_webpage calls for individual URLs.
     - Only after fetching all sources should you analyze and respond.
