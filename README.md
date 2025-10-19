@@ -9,7 +9,7 @@ LMSpace is a CLI tool for managing workspace agents across different backends. I
 Manage isolated VS Code workspaces for parallel agent development sessions:
 
 - **Provision subagents**: Create a pool of isolated workspace directories
-- **Launch agents**: Automatically claim and launch VS Code with agent configurations
+- **Chat with agents**: Automatically claim a workspace and start a VS Code chat session
 - **Lock management**: Prevent conflicts when running multiple agents in parallel
 
 The project uses `uv` for dependency and environment management.
@@ -47,9 +47,9 @@ uv pip install -e .[dev]
    ```
    This creates 5 isolated workspace directories in `~/.ai-prompts/agents/`.
 
-2. **Launch an agent**:
+2. **Start a chat with an agent**:
    ```powershell
-   lmspace code launch <agent_config_path> "Your query here"
+   lmspace code chat <agent_config_path> "Your query here"
    ```
    This claims an unlocked subagent, copies your agent configuration, and opens VS Code.
 
@@ -69,9 +69,9 @@ lmspace code provision --subagents <count> [--refresh] [--template <path>] [--ta
 - `--target-root <path>`: Custom destination (default: `~/.ai-prompts/agents`)
 - `--dry-run`: Preview without making changes
 
-**Launch an agent**:
+**Start a chat with an agent**:
 ```powershell
-lmspace code launch <agent_config_path> <query> [--attachment <path>] [--dry-run]
+lmspace code chat <agent_config_path> <query> [--attachment <path>] [--dry-run]
 ```
 - `<agent_config_path>`: Path to agent configuration directory
 - `<query>`: User query to pass to the agent

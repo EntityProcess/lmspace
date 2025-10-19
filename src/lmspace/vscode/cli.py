@@ -65,12 +65,12 @@ def add_provision_parser(subparsers: Any) -> None:
     )
 
 
-def add_launch_parser(subparsers: Any) -> None:
-    """Add the 'launch' subcommand parser."""
+def add_chat_parser(subparsers: Any) -> None:
+    """Add the 'chat' subcommand parser."""
     parser = subparsers.add_parser(
-        "launch",
-        help="Launch an agent in an isolated subagent workspace",
-        description="Launch an agent in an isolated subagent environment.",
+        "chat",
+        help="Start a chat with an agent in an isolated subagent workspace",
+        description="Start a chat with an agent in an isolated subagent environment.",
     )
     parser.add_argument(
         "agent_config_path",
@@ -140,8 +140,8 @@ def handle_provision(args: argparse.Namespace) -> int:
     return 0
 
 
-def handle_launch(args: argparse.Namespace) -> int:
-    """Handle the 'launch' subcommand."""
+def handle_chat(args: argparse.Namespace) -> int:
+    """Handle the 'chat' subcommand."""
     return launch_agent(
         args.query,
         args.agent_config_path,
