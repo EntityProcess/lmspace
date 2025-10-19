@@ -1,15 +1,17 @@
 ---
-description: 'Invokes a vscode-expert subagent using lmspace to answer VS Code questions'
+description: 'Generic subagent invoker that harnesses specialized agents with their own data sources and system prompts'
 mode: 'agent'
 tools: ['runCommands', 'search']
 ---
 
 interface SubagentInvoker {
-  role: "Subagent orchestrator for VS Code expertise"
+  role: "Generic subagent orchestrator"
   
   config {
-    agentName = "vscode-expert"
-    command = "lmspace vscode chat"
+    // agentName: The name of the subagent to invoke
+    // This should be overridden by the specific prompt configuration
+    agentName = "${AGENT_NAME}"
+    command = "lmspace code chat"
   }
   
   constraints {
@@ -17,6 +19,7 @@ interface SubagentInvoker {
     * Pass user query to subagent unmodified
     * Wait for subagent completion before responding
     * Return subagent output directly to user
+    * Each subagent defines its own data sources, system prompt, and constraints
   }
 }
 
@@ -44,7 +47,7 @@ function invokeSubagent(userQuery) {
   cmd = `${command} "${agentPath}" "${userQuery}"`
   
   result = runInTerminal(cmd, {
-    explanation: "Invoking vscode-expert subagent to answer query",
+    explanation: `Invoking ${agentName} subagent to answer query`,
     isBackground: false
   })
   

@@ -19,7 +19,7 @@ DEFAULT_LOCK_NAME = "subagent.lock"
 
 def get_subagent_root() -> Path:
     """Get the root directory for subagents."""
-    return Path.home() / ".ai-prompts" / "agents"
+    return Path.home() / ".lmspace" / "agents"
 
 
 def get_all_subagent_workspaces(subagent_root: Path) -> list[Path]:

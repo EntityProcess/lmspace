@@ -17,7 +17,7 @@ def add_provision_parser(subparsers: Any) -> None:
         "provision",
         help="Provision subagent workspace directories",
         description=(
-            "Copy the subagent template into ~/.ai-prompts/agents "
+            "Copy the subagent template into ~/.lmspace/agents "
             "so multiple VS Code instances can run isolated subagents."
         ),
     )
@@ -39,10 +39,10 @@ def add_provision_parser(subparsers: Any) -> None:
     parser.add_argument(
         "--target-root",
         type=Path,
-        default=Path.home() / ".ai-prompts" / "agents",
+        default=Path.home() / ".lmspace" / "agents",
         help=(
             "Destination root for subagent directories. Defaults to "
-            "~/.ai-prompts/agents."
+            "~/.lmspace/agents."
         ),
     )
     parser.add_argument(
@@ -123,7 +123,7 @@ def add_warmup_parser(subparsers: Any) -> None:
         default=None,
         help=(
             "Root directory containing subagents. Defaults to "
-            "~/.ai-prompts/agents."
+            "~/.lmspace/agents."
         ),
     )
     parser.add_argument(

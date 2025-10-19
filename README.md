@@ -4,7 +4,7 @@ LMSpace is a CLI tool for managing workspace agents across different backends. I
 
 ## Features
 
-### VS Code Workspace Agents ✅
+### VS Code Workspace Agents
 
 Manage isolated VS Code workspaces for parallel agent development sessions:
 
@@ -32,7 +32,10 @@ The project uses `uv` for dependency and environment management.
 ### Installation
 
 ```powershell
-# Install lmspace
+# Install lmspace as a uv-managed tool (recommended for end users)
+uv tool install lmspace
+
+# Install via uv pip (useful when managing a virtualenv manually)
 uv pip install lmspace
 
 # Or for development
@@ -45,7 +48,7 @@ uv pip install -e .[dev]
    ```powershell
    lmspace code provision --subagents 5
    ```
-   This creates 5 isolated workspace directories in `~/.ai-prompts/agents/`.
+   This creates 5 isolated workspace directories in `~/.lmspace/agents/`.
 
 2. **Warm up workspaces** (optional but recommended):
    ```powershell
@@ -72,7 +75,7 @@ lmspace code provision --subagents <count> [--refresh] [--template <path>] [--ta
 - `--subagents <count>`: Number of workspaces to create
 - `--refresh`: Rebuild unlocked workspaces
 - `--template <path>`: Custom template directory
-- `--target-root <path>`: Custom destination (default: `~/.ai-prompts/agents`)
+- `--target-root <path>`: Custom destination (default: `~/.lmspace/agents`)
 - `--dry-run`: Preview without making changes
 
 **Warm up workspaces**:
