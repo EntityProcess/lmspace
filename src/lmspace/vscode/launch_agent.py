@@ -224,17 +224,19 @@ def launch_agent(
         if not dry_run:
             response_file_tmp.touch(exist_ok=True)
         
-        # Create JSON prompt with user query and save instructions
-        json_prompt = {
-            "user_query": user_query,
-            "instructions": {
-                "save_responses": True,
-                "response_file_path": str(response_file_tmp),
-                "format": "markdown",
-                "note": "Save all your responses to the specified file path as you work through the task. When you have completely finished the task, rename this file by removing the '.tmp' extension."
-            }
-        }
-        json_prompt_str = json.dumps(json_prompt, indent=2)
+        # Create SudoLang prompt with user query and save instructions
+        sudolang_prompt = f"""[[ ## task ## ]]
+{user_query}
+
+[[ ## system_instructions ## ]]
+
+**IMPORTANT**: Follow these exact steps:
+1. Write your complete response to: {response_file_tmp}
+2. When completely finished, run this PowerShell command to signal completion:
+   Move-Item -LiteralPath '{response_file_tmp}' -Destination '{response_file_final}'
+
+Do not proceed to step 2 until your response is completely written to the temporary file.
+"""
         
         # Report the launched subagent in a minimal JSON payload
         print(
@@ -271,22 +273,22 @@ def launch_agent(
                 # Open workspace again to ensure it's focused
                 subprocess.Popen(f'code "{workspace_path}"', shell=True)
                 
-                # Write JSON to a temp file in the messages directory to avoid shell escaping issues
-                json_file = messages_dir / f"{timestamp}_req.json"
-                json_file.write_text(json_prompt_str, encoding='utf-8')
+                # Write SudoLang prompt to a req.md file in the messages directory
+                req_file = messages_dir / f"{timestamp}_req.md"
+                req_file.write_text(sudolang_prompt, encoding='utf-8')
                 
-                # Build chat command with JSON file as attachment
+                # Build chat command with req.md file as attachment
                 chat_cmd = f'code -r chat -m subagent'
                 
                 # Add attachments
                 for attachment in attachment_paths:
                     chat_cmd += f' -a "{attachment}"'
                 
-                # Add the JSON file as an attachment
-                chat_cmd += f' -a "{json_file}"'
+                # Add the req.md file as an attachment
+                chat_cmd += f' -a "{req_file}"'
                 
-                # Add a simple prompt that references the JSON file
-                chat_cmd += f' "Read the attached {json_file.name} file for your task and instructions."'
+                # Add a simple prompt that references the req.md file
+                chat_cmd += f' "Follow the instructions in {req_file.name}"'
                 
                 subprocess.Popen(chat_cmd, shell=True)
                     

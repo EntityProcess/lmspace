@@ -18,12 +18,12 @@ interface VSCodeExpert {
   ]
   
   constraints {
-    * load(sources) before answering
+    * fetch all sources in parallel in a single batch before answering
     * ground answers in actual implementation
     * concise, accurate, cite source when relevant
   }
   
   /answer(query) {
-    fetch(sources) |> analyze |> respond
+    fetch_all(sources, parallel=true) |> analyze |> respond
   }
 }
