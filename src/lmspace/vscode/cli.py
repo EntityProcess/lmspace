@@ -33,7 +33,7 @@ def add_provision_parser(subparsers: Any) -> None:
         default=DEFAULT_TEMPLATE_DIR,
         help=(
             "Path to the subagent template. Defaults to the "
-            "built-in subagent-template directory."
+            "built-in subagent_template directory."
         ),
     )
     parser.add_argument(

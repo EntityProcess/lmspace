@@ -25,6 +25,12 @@ lmspace = "lmspace:main"
 requires = ["uv_build>=0.9.3,<0.10.0"]
 build-backend = "uv_build"
 
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+lmspace = ["vscode/subagent_template/**/*"]
+
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["tests"]

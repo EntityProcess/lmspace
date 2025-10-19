@@ -20,7 +20,7 @@ def get_subagent_root() -> Path:
 
 def get_default_template_dir() -> Path:
     """Get the default subagent template directory."""
-    return Path(__file__).parent / "subagent-template"
+    return Path(__file__).parent / "subagent_template"
 
 
 def find_unlocked_subagent(subagent_root: Path) -> Optional[Path]:

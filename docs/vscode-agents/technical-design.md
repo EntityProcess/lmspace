@@ -27,7 +27,7 @@ The tool is now available globally via the `lmspace` command.
 ### Provisioning Workflow ✅ Delivered
 
 - Run `lmspace code provision --subagents <count>` to seed the subagent pool.
-  The command copies the built-in `subagent-template` into
+  The command copies the built-in `subagent_template` into
   `%USERPROFILE%\.ai-prompts\agents` by default (override with
   `--target-root <path>` if needed).
 - Subagent directories follow the `subagent-<n>` naming pattern. Provisioning

@@ -10,7 +10,7 @@ from typing import List, Tuple
 
 DEFAULT_LOCK_NAME = "subagent.lock"
 DEFAULT_TEMPLATE_DIR = (
-    Path(__file__).resolve().parent / "subagent-template"
+    Path(__file__).resolve().parent / "subagent_template"
 )
 
 
@@ -34,7 +34,7 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_TEMPLATE_DIR,
         help=(
             "Path to the subagent subagent template. Defaults to the "
-            "subagent-template directory that sits beside this script."
+            "subagent_template directory that sits beside this script."
         ),
     )
     parser.add_argument(
