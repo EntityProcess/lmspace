@@ -18,6 +18,11 @@ def get_subagent_root() -> Path:
     return Path.home() / ".ai-prompts" / "agents"
 
 
+def get_default_template_dir() -> Path:
+    """Get the default subagent template directory."""
+    return Path(__file__).parent / "subagent-template"
+
+
 def find_unlocked_subagent(subagent_root: Path) -> Optional[Path]:
     """Find the first unlocked subagent directory.
     
@@ -47,17 +52,23 @@ def copy_agent_config(
     """Copy agent configuration to subagent.
     
     Copies subagent.chatmode.md and subagent.code-workspace from the template
-    to the subagent directory. Returns a dict with copied file paths.
+    to the subagent directory. Falls back to default template for workspace
+    if not found in agent template directory.
     
-    Raises FileNotFoundError if template files are missing.
+    Raises FileNotFoundError if chatmode template is missing.
     """
     chatmode_src = agent_template_dir / "subagent.chatmode.md"
     workspace_src = agent_template_dir / "subagent.code-workspace"
     
     if not chatmode_src.exists():
         raise FileNotFoundError(f"Template chatmode not found: {chatmode_src}")
+    
+    # Fall back to default workspace template if not found in agent directory
     if not workspace_src.exists():
-        raise FileNotFoundError(f"Template workspace not found: {workspace_src}")
+        default_template_dir = get_default_template_dir()
+        workspace_src = default_template_dir / "subagent.code-workspace"
+        if not workspace_src.exists():
+            raise FileNotFoundError(f"Default workspace template not found: {workspace_src}")
     
     chatmode_dst = subagent_dir / "subagent.chatmode.md"
     workspace_dst = subagent_dir / "subagent.code-workspace"
