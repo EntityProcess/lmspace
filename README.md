@@ -45,7 +45,7 @@ uv pip install -e .[dev]
    ```powershell
    lmspace code provision --subagents 5
    ```
-   This creates 5 isolated workspace directories in `~/.ai-prompts/agents/`.
+   This creates 5 isolated workspace directories in `~/.lmspace/agents/`.
 
 2. **Warm up workspaces** (optional but recommended):
    ```powershell
@@ -72,7 +72,7 @@ lmspace code provision --subagents <count> [--refresh] [--template <path>] [--ta
 - `--subagents <count>`: Number of workspaces to create
 - `--refresh`: Rebuild unlocked workspaces
 - `--template <path>`: Custom template directory
-- `--target-root <path>`: Custom destination (default: `~/.ai-prompts/agents`)
+- `--target-root <path>`: Custom destination (default: `~/.lmspace/agents`)
 - `--dry-run`: Preview without making changes
 
 **Warm up workspaces**:

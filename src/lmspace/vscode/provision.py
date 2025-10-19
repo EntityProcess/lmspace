@@ -18,7 +18,7 @@ def parse_args() -> argparse.Namespace:
     """Parse CLI arguments for provisioning subagent subagents."""
     parser = argparse.ArgumentParser(
         description=(
-            "Copy the subagent template into %USERPROFILE%/.ai-prompts/agents "
+            "Copy the subagent template into %USERPROFILE%/.lmspace/agents "
             "so multiple VS Code instances can run isolated subagents."
         )
     )
@@ -40,10 +40,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--target-root",
         type=Path,
-        default=Path.home() / ".ai-prompts" / "agents",
+        default=Path.home() / ".lmspace" / "agents",
         help=(
             "Destination root for subagent directories. Defaults to "
-            "%USERPROFILE%/.ai-prompts/agents."
+            "%USERPROFILE%/.lmspace/agents."
         ),
     )
     parser.add_argument(
