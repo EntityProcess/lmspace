@@ -1,16 +1,14 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `src/lmspace/`: CLI, Azure provisioning logic, config/fetch utilities.
+- `src/lmspace/`: CLI, agent provisioning logic, config/fetch utilities.
 - `tests/`: Pytest suites covering config parsing, fetchers, and the runner.
 - `configs/`: Sample YAML agents (duplicated URLs allowed for experiments).
-- `docs/`: Design references including `technical-design.md` and MVP plan.
 - `.python-version`, `pyproject.toml`, and `env.template`: runtime pinning, packaging metadata, and environment variables.
 
 ## Build, Test, and Development Commands
 - `uv venv`: Create the local virtual environment pinned to Python 3.12.
 - `uv pip install -e .[dev]`: Editable install with dev extras (pytest, respx).
-- `uv run lmspace --dry-run configs\sample-agent.yaml`: Execute the CLI without contacting Azure services.
 - `uv run --extra dev pytest`: Run the full test suite using the dev extra dependencies.
 
 ## Coding Style & Naming Conventions

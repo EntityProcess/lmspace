@@ -1,14 +1,12 @@
 [project]
 name = "lmspace"
-version = "0.1.0"
-description = "Runner that provisions Azure OpenAI assistants from YAML configs"
+version = "0.1.1"
+description = "Runner that provisions subagents from configs"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.12"
 dependencies = [
-    "azure-identity>=1.25.1",
-    "httpx>=0.28.1",
-    "openai>=1.40.0",
+    "openai>=2.4.0",
     "pydantic>=2.12.2",
     "pyyaml>=6.0.3",
     "tenacity>=9.1.2",
@@ -18,7 +16,6 @@ dependencies = [
 dev = [
     "pytest>=8.4",
     "pytest-asyncio>=0.23",
-    "respx>=0.22",
 ]
 
 [project.scripts]
@@ -27,6 +24,12 @@ lmspace = "lmspace:main"
 [build-system]
 requires = ["uv_build>=0.9.3,<0.10.0"]
 build-backend = "uv_build"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+lmspace = ["vscode/subagent_template/**/*"]
 
 [tool.pytest.ini_options]
 addopts = "-q"

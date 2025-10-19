@@ -1,6 +1,16 @@
-# LMSpace MVP
+# LMSpace
 
-The LMSpace MVP provisions Azure OpenAI assistants from YAML config files. Each config describes a custom GPT-style agent with instructions and knowledge-base sources. The runner downloads the referenced files, uploads them to Azure OpenAI using the Assistants API (file search), and optionally registers a Microsoft Agent Framework agent when the framework is available.
+LMSpace is a CLI tool for managing workspace agents across different backends. It currently supports VS Code workspace agents with plans to add support for OpenAI Agents and Azure AI Agents.
+
+## Features
+
+### VS Code Workspace Agents ✅
+
+Manage isolated VS Code workspaces for parallel agent development sessions:
+
+- **Provision subagents**: Create a pool of isolated workspace directories
+- **Chat with agents**: Automatically claim a workspace and start a VS Code chat session
+- **Lock management**: Prevent conflicts when running multiple agents in parallel
 
 The project uses `uv` for dependency and environment management.
 
@@ -15,48 +25,72 @@ The project uses `uv` for dependency and environment management.
 
 - Python 3.12+
 - [uv](https://github.com/astral-sh/uv) installed locally (`pip install uv`)
-- Azure OpenAI resource with Assistants API v2 enabled
-- Optional: Microsoft Agent Framework preview packages
+- VS Code installed for workspace agent functionality
 
-Before provisioning real assistants, set the following environment variables:
+## Quick Start
 
-- `AZURE_OPENAI_ENDPOINT`
-- `AZURE_OPENAI_API_VERSION`
-- `AZURE_OPENAI_DEPLOYMENT_NAME`
-- `AZURE_OPENAI_API_KEY` *(or rely on Azure AD with `DefaultAzureCredential`)*
-
-Optional environment variables:
-
-- `GITHUB_TOKEN` for private GitHub file downloads
-- `LMSPACE_VECTOR_PREFIX` to customize vector store names
-- `LMSPACE_LOG_LEVEL` for logging (default `info`)
-
-## Getting Started
+### Installation
 
 ```powershell
-# Create the environment using uv
-uv venv
+# Install lmspace
+uv pip install lmspace
 
-# Install the package in editable mode with development tools
-uv pip install -e . --extra dev
-
-# Provision assistants from a config file or directory (dry-run shown)
-lmspace --dry-run configs/sample-agent.yaml
+# Or for development
+uv pip install -e .[dev]
 ```
 
-Run without `--dry-run` after configuring Azure credentials to perform real provisioning.
+### Using VS Code Workspace Agents
 
-## YAML Config Format
+1. **Provision subagent workspaces**:
+   ```powershell
+   lmspace code provision --subagents 5
+   ```
+   This creates 5 isolated workspace directories in `~/.ai-prompts/agents/`.
 
-```yaml
-name: SampleAgent
-instructions: |
-  You are a helpful assistant that answers questions about the example files.
-urls:
-  - https://raw.githubusercontent.com/github/gitignore/main/Python.gitignore
+2. **Warm up workspaces** (optional but recommended):
+   ```powershell
+   lmspace code warmup
+   ```
+   Opens all provisioned workspaces in VS Code so they're ready for instant use.
+
+3. **Start a chat with an agent**:
+   ```powershell
+   lmspace code chat <agent_config_path> "Your query here"
+   ```
+   This claims an unlocked subagent, copies your agent configuration, and opens VS Code.
+
+4. **Example agent configuration** (`my-agent/` directory):
+   - `subagent.chatmode.md` - Chat mode configuration and instructions
+   - `subagent.code-workspace` - VS Code workspace settings
+
+### Command Reference
+
+**Provision subagents**:
+```powershell
+lmspace code provision --subagents <count> [--refresh] [--template <path>] [--target-root <path>]
 ```
+- `--subagents <count>`: Number of workspaces to create
+- `--refresh`: Rebuild unlocked workspaces
+- `--template <path>`: Custom template directory
+- `--target-root <path>`: Custom destination (default: `~/.ai-prompts/agents`)
+- `--dry-run`: Preview without making changes
 
-Each `urls` entry should point to a text or binary document Azure OpenAI accepts for file search. The runner downloads the files, uploads them to Azure, creates a vector store, and wires it into a new assistant using your deployment.
+**Warm up workspaces**:
+```powershell
+lmspace code warmup [--subagents <count>] [--target-root <path>] [--dry-run]
+```
+- `--subagents <count>`: Number of workspaces to open (default: 1)
+- `--target-root <path>`: Custom subagent root directory
+- `--dry-run`: Show which workspaces would be opened
+
+**Start a chat with an agent**:
+```powershell
+lmspace code chat <agent_config_path> <query> [--attachment <path>] [--dry-run]
+```
+- `<agent_config_path>`: Path to agent configuration directory
+- `<query>`: User query to pass to the agent
+- `--attachment <path>`: Additional files to attach (repeatable)
+- `--dry-run`: Preview without launching VS Code
 
 ## Development
 
@@ -67,26 +101,3 @@ uv pip install -e . --extra dev
 # Run tests
 uv run --extra dev pytest
 ```
-
-The code lives under `src/lmspace`. Key modules:
-
-- `config.py` - Validates YAML configs
-- `fetcher.py` - Downloads remote knowledge sources
-- `azure.py` - Wraps Azure OpenAI assistant provisioning
-- `runner.py` - Glues everything together
-- `cli.py` - Command-line entry point
-
-## Microsoft Agent Framework Integration
-
-If the `agent_framework` preview package is installed, the runner attempts to create a matching Agent Framework agent via `AzureOpenAIResponsesClient`. When the package is absent, the MVP logs the omission and still provisions the Azure OpenAI assistant.
-
-## Testing Notes
-
-Unit tests cover YAML parsing, remote fetch behaviour, and runner orchestration. Azure calls are mocked by injecting stub services, so tests run without Azure credentials.
-
-## Next Steps
-
-1. Add richer error handling and telemetry around Azure operations.
-2. Persist vector store and assistant identifiers for incremental updates.
-3. Extend the runner to handle incremental syncs and deletions.
-4. Package and publish to PyPI once the Agent Framework dependencies stabilise.
