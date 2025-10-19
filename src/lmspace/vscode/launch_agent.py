@@ -103,6 +103,49 @@ def create_subagent_lock(subagent_dir: Path) -> Path:
     return lock_file
 
 
+def wait_for_response_output(
+    response_file_tmp: Path,
+    response_file_final: Path,
+    *,
+    poll_interval: float = 1.0,
+) -> bool:
+    """Wait for the agent to finalize the response and print it."""
+    print(
+        f"waiting for agent to finish: {response_file_final}",
+        file=sys.stderr,
+        flush=True,
+    )
+
+    try:
+        while not response_file_final.exists():
+            time.sleep(poll_interval)
+    except KeyboardInterrupt:
+        print(
+            "\ninfo: interrupted while waiting for agent response.",
+            file=sys.stderr,
+        )
+        return False
+
+    read_attempts = 0
+    max_attempts = 10
+    while True:
+        try:
+            content = response_file_final.read_text(encoding="utf-8")
+            break
+        except OSError as exc:  # Handles sharing violations on Windows
+            read_attempts += 1
+            if read_attempts >= max_attempts:
+                print(
+                    f"error: failed to read agent response: {exc}",
+                    file=sys.stderr,
+                )
+                return False
+            time.sleep(poll_interval)
+
+    print(content)
+    return True
+
+
 def launch_agent(
     user_query: str,
     agent_template_dir: Path,
@@ -177,6 +220,9 @@ def launch_agent(
         messages_dir = subagent_dir / "messages"
         response_file_tmp = messages_dir / f"{timestamp}_res.tmp.md"
         response_file_final = messages_dir / f"{timestamp}_res.md"
+
+        if not dry_run:
+            response_file_tmp.touch(exist_ok=True)
         
         # Create JSON prompt with user query and save instructions
         json_prompt = {
@@ -200,8 +246,13 @@ def launch_agent(
                 }
             )
         )
+        sys.stdout.flush()
         
         # Launch VS Code with the workspace and chat
+        if dry_run:
+            return 0
+
+        launch_success = True
         if not dry_run:
             try:
                 workspace_path = str(
@@ -241,7 +292,14 @@ def launch_agent(
                     
             except Exception as e:
                 print(f"warning: Failed to launch VS Code: {e}", file=sys.stderr)
+                launch_success = False
         
+        if not launch_success:
+            return 1
+
+        if not wait_for_response_output(response_file_tmp, response_file_final):
+            return 1
+
         return 0
     
     except Exception as e:
