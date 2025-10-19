@@ -103,6 +103,15 @@ def create_subagent_lock(subagent_dir: Path) -> Path:
     return lock_file
 
 
+def remove_subagent_lock(subagent_dir: Path) -> None:
+    """Remove the lock file to mark the subagent as available.
+    
+    Silently succeeds if the lock file doesn't exist.
+    """
+    lock_file = subagent_dir / DEFAULT_LOCK_NAME
+    lock_file.unlink(missing_ok=True)
+
+
 def wait_for_response_output(
     response_file_tmp: Path,
     response_file_final: Path,
@@ -296,7 +305,16 @@ Do not proceed to step 2 until your response is completely written to the tempor
         if not launch_success:
             return 1
 
-        if not wait_for_response_output(response_file_tmp, response_file_final):
+        response_received = wait_for_response_output(response_file_tmp, response_file_final)
+        
+        # Remove the lock file after response is received
+        if not dry_run:
+            try:
+                remove_subagent_lock(subagent_dir)
+            except Exception as e:
+                print(f"warning: Failed to remove subagent lock: {e}", file=sys.stderr)
+        
+        if not response_received:
             return 1
 
         return 0
