@@ -133,6 +133,69 @@ def provision_subagents(
     return created, skipped_existing, skipped_locked
 
 
+def unlock_subagents(
+    *,
+    target_root: Path,
+    lock_name: str,
+    subagent_number: int | None = None,
+    unlock_all: bool = False,
+    dry_run: bool = False,
+) -> List[Path]:
+    """Unlock subagent(s) by removing their lock files.
+    
+    Args:
+        target_root: Root directory containing subagent directories
+        lock_name: Name of the lock file to remove
+        subagent_number: Specific subagent number to unlock (e.g., 1 for subagent-1)
+        unlock_all: If True, unlock all subagents
+        dry_run: If True, show what would be done without making changes
+    
+    Returns:
+        List of paths to subagent directories that were unlocked
+    
+    Raises:
+        ValueError: If neither subagent_number nor unlock_all is specified,
+                    or if both are specified, or if the subagent doesn't exist
+    """
+    if (subagent_number is None and not unlock_all) or (subagent_number is not None and unlock_all):
+        raise ValueError("must specify either --subagent or --all (but not both)")
+    
+    target_path = target_root.expanduser().resolve()
+    
+    if not target_path.exists():
+        raise ValueError(f"target root {target_path} does not exist")
+    
+    unlocked: List[Path] = []
+    
+    if unlock_all:
+        # Find all subagent directories and unlock them
+        subagents = sorted(
+            (d for d in target_path.iterdir() if d.is_dir() and d.name.startswith("subagent-")),
+            key=lambda d: int(d.name.split("-")[1])
+        )
+        
+        for subagent_dir in subagents:
+            lock_file = subagent_dir / lock_name
+            if lock_file.exists():
+                if not dry_run:
+                    lock_file.unlink()
+                unlocked.append(subagent_dir)
+    else:
+        # Unlock specific subagent
+        subagent_dir = target_path / f"subagent-{subagent_number}"
+        
+        if not subagent_dir.exists():
+            raise ValueError(f"subagent-{subagent_number} does not exist in {target_path}")
+        
+        lock_file = subagent_dir / lock_name
+        if lock_file.exists():
+            if not dry_run:
+                lock_file.unlink()
+            unlocked.append(subagent_dir)
+    
+    return unlocked
+
+
 def main() -> int:
     """Entry point for the provisioning script."""
     args = parse_args()

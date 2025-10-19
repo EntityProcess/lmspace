@@ -32,10 +32,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     
     # Add 'code provision' subcommand
-    from .vscode.cli import add_provision_parser, add_chat_parser, add_warmup_parser
+    from .vscode.cli import add_provision_parser, add_chat_parser, add_warmup_parser, add_unlock_parser
     add_provision_parser(code_subparsers)
     add_chat_parser(code_subparsers)
     add_warmup_parser(code_subparsers)
+    add_unlock_parser(code_subparsers)
     
     args = parser.parse_args(argv)
     
@@ -50,6 +51,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         elif args.action == "warmup":
             from .vscode.cli import handle_warmup
             return handle_warmup(args)
+        elif args.action == "unlock":
+            from .vscode.cli import handle_unlock
+            return handle_unlock(args)
     
     return 1
 

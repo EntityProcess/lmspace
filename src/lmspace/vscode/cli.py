@@ -133,6 +133,53 @@ def add_warmup_parser(subparsers: Any) -> None:
     )
 
 
+def add_unlock_parser(subparsers: Any) -> None:
+    """Add the 'unlock' subcommand parser."""
+    parser = subparsers.add_parser(
+        "unlock",
+        help="Unlock subagent(s) by removing their lock files",
+        description=(
+            "Remove lock files from subagent directories to make them "
+            "available for new agent launches. Use --subagent to unlock "
+            "a specific subagent or --all to unlock all subagents."
+        ),
+    )
+    parser.add_argument(
+        "--subagent",
+        type=int,
+        default=None,
+        help="Subagent number to unlock (e.g., 1 for subagent-1).",
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        dest="unlock_all",
+        help="Unlock all subagents.",
+    )
+    parser.add_argument(
+        "--target-root",
+        type=Path,
+        default=Path.home() / ".lmspace" / "agents",
+        help=(
+            "Root directory containing subagents. Defaults to "
+            "~/.lmspace/agents."
+        ),
+    )
+    parser.add_argument(
+        "--lock-name",
+        default=DEFAULT_LOCK_NAME,
+        help=(
+            "File name that marks a subagent as locked. Defaults to "
+            f"{DEFAULT_LOCK_NAME}."
+        ),
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be unlocked without making changes.",
+    )
+
+
 def handle_provision(args: argparse.Namespace) -> int:
     """Handle the 'provision' subcommand."""
     try:
@@ -190,3 +237,35 @@ def handle_warmup(args: argparse.Namespace) -> int:
         subagents=args.subagents,
         dry_run=args.dry_run,
     )
+
+
+def handle_unlock(args: argparse.Namespace) -> int:
+    """Handle the 'unlock' subcommand."""
+    from .provision import unlock_subagents
+    
+    try:
+        unlocked = unlock_subagents(
+            target_root=args.target_root,
+            lock_name=args.lock_name,
+            subagent_number=args.subagent,
+            unlock_all=args.unlock_all,
+            dry_run=args.dry_run,
+        )
+    except ValueError as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 1
+    
+    if unlocked:
+        print("unlocked subagents:")
+        for path in unlocked:
+            print(f"  {path}")
+    else:
+        if args.unlock_all:
+            print("no locked subagents found")
+        else:
+            print(f"subagent-{args.subagent} was not locked")
+    
+    if args.dry_run:
+        print("dry run complete; no changes were made")
+    
+    return 0
