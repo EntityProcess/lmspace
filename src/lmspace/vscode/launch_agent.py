@@ -220,9 +220,6 @@ def launch_agent(
         messages_dir = subagent_dir / "messages"
         response_file_tmp = messages_dir / f"{timestamp}_res.tmp.md"
         response_file_final = messages_dir / f"{timestamp}_res.md"
-
-        if not dry_run:
-            response_file_tmp.touch(exist_ok=True)
         
         # Create SudoLang prompt with user query and save instructions
         sudolang_prompt = f"""[[ ## task ## ]]
@@ -231,7 +228,7 @@ def launch_agent(
 [[ ## system_instructions ## ]]
 
 **IMPORTANT**: Follow these exact steps:
-1. Write your complete response to: {response_file_tmp}
+1. Create and write your complete response to: {response_file_tmp}
 2. When completely finished, run this PowerShell command to signal completion:
    Move-Item -LiteralPath '{response_file_tmp}' -Destination '{response_file_final}'
 
