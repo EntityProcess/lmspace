@@ -22,6 +22,29 @@ def get_subagent_root() -> Path:
     return Path.home() / ".ai-prompts" / "agents"
 
 
+def get_all_subagent_workspaces(subagent_root: Path) -> list[Path]:
+    """Get all subagent workspace files.
+    
+    Returns a list of paths to all subagent.code-workspace files in the
+    subagent root directory, sorted by subagent number.
+    """
+    if not subagent_root.exists():
+        return []
+    
+    subagents = sorted(
+        (d for d in subagent_root.iterdir() if d.is_dir() and d.name.startswith("subagent-")),
+        key=lambda d: int(d.name.split("-")[1])
+    )
+    
+    workspaces = []
+    for subagent_dir in subagents:
+        workspace_file = subagent_dir / "subagent.code-workspace"
+        if workspace_file.exists():
+            workspaces.append(workspace_file)
+    
+    return workspaces
+
+
 def get_default_template_dir() -> Path:
     """Get the default subagent template directory."""
     return Path(__file__).parent / "subagent_template"
@@ -338,6 +361,62 @@ Do not proceed to step 2 until your response is completely written to the tempor
             file=sys.stdout,
         )
         return 1
+
+
+def warmup_subagents(
+    *,
+    subagent_root: Optional[Path] = None,
+    subagents: int = 1,
+    dry_run: bool = False,
+) -> int:
+    """Open all provisioned VSCode workspaces to warm them up.
+    
+    Args:
+        subagent_root: Root directory containing subagents. Defaults to standard location.
+        subagents: Number of subagent workspaces to open. Defaults to 1.
+        dry_run: When True, report what would be done without opening workspaces.
+    
+    Returns:
+        Exit code (0 for success, non-zero for failure)
+    """
+    if subagent_root is None:
+        subagent_root = get_subagent_root()
+    
+    workspaces = get_all_subagent_workspaces(subagent_root)
+    
+    if not workspaces:
+        print(
+            f"info: No provisioned subagents found in {subagent_root}",
+            file=sys.stderr,
+        )
+        print(
+            "hint: Provision subagents first with:\n"
+            "  lmspace code provision --subagents <count>",
+            file=sys.stderr,
+        )
+        return 1
+    
+    # Limit to the requested number of subagents
+    workspaces_to_open = workspaces[:subagents]
+    
+    print(f"Found {len(workspaces)} subagent workspace(s), opening {len(workspaces_to_open)}", file=sys.stderr)
+    
+    if dry_run:
+        print("Workspaces that would be opened:", file=sys.stderr)
+        for workspace in workspaces_to_open:
+            print(f"  {workspace}", file=sys.stderr)
+        return 0
+    
+    print("Opening workspaces...", file=sys.stderr)
+    for i, workspace in enumerate(workspaces_to_open, 1):
+        try:
+            print(f"  [{i}/{len(workspaces_to_open)}] {workspace.parent.name}", file=sys.stderr)
+            subprocess.Popen(f'code "{workspace}"', shell=True)
+        except Exception as e:
+            print(f"warning: Failed to open {workspace}: {e}", file=sys.stderr)
+    
+    print("✓ All workspaces opened", file=sys.stderr)
+    return 0
 
 
 def main() -> int:

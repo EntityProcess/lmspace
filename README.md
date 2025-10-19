@@ -47,13 +47,19 @@ uv pip install -e .[dev]
    ```
    This creates 5 isolated workspace directories in `~/.ai-prompts/agents/`.
 
-2. **Start a chat with an agent**:
+2. **Warm up workspaces** (optional but recommended):
+   ```powershell
+   lmspace code warmup
+   ```
+   Opens all provisioned workspaces in VS Code so they're ready for instant use.
+
+3. **Start a chat with an agent**:
    ```powershell
    lmspace code chat <agent_config_path> "Your query here"
    ```
    This claims an unlocked subagent, copies your agent configuration, and opens VS Code.
 
-3. **Example agent configuration** (`my-agent/` directory):
+4. **Example agent configuration** (`my-agent/` directory):
    - `subagent.chatmode.md` - Chat mode configuration and instructions
    - `subagent.code-workspace` - VS Code workspace settings
 
@@ -68,6 +74,14 @@ lmspace code provision --subagents <count> [--refresh] [--template <path>] [--ta
 - `--template <path>`: Custom template directory
 - `--target-root <path>`: Custom destination (default: `~/.ai-prompts/agents`)
 - `--dry-run`: Preview without making changes
+
+**Warm up workspaces**:
+```powershell
+lmspace code warmup [--subagents <count>] [--target-root <path>] [--dry-run]
+```
+- `--subagents <count>`: Number of workspaces to open (default: 1)
+- `--target-root <path>`: Custom subagent root directory
+- `--dry-run`: Show which workspaces would be opened
 
 **Start a chat with an agent**:
 ```powershell

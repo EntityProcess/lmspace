@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .provision import provision_subagents, DEFAULT_TEMPLATE_DIR, DEFAULT_LOCK_NAME
-from .launch_agent import launch_agent
+from .launch_agent import launch_agent, warmup_subagents, get_subagent_root
 
 
 def add_provision_parser(subparsers: Any) -> None:
@@ -101,6 +101,38 @@ def add_chat_parser(subparsers: Any) -> None:
     )
 
 
+def add_warmup_parser(subparsers: Any) -> None:
+    """Add the 'warmup' subcommand parser."""
+    parser = subparsers.add_parser(
+        "warmup",
+        help="Open all provisioned VSCode workspaces to warm them up",
+        description=(
+            "Open all provisioned subagent workspaces in VSCode. "
+            "This preloads the workspaces so they're ready for agent launches."
+        ),
+    )
+    parser.add_argument(
+        "--subagents",
+        type=int,
+        default=1,
+        help="Number of subagent workspaces to open. Defaults to 1.",
+    )
+    parser.add_argument(
+        "--target-root",
+        type=Path,
+        default=None,
+        help=(
+            "Root directory containing subagents. Defaults to "
+            "~/.ai-prompts/agents."
+        ),
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show which workspaces would be opened without opening them",
+    )
+
+
 def handle_provision(args: argparse.Namespace) -> int:
     """Handle the 'provision' subcommand."""
     try:
@@ -146,5 +178,15 @@ def handle_chat(args: argparse.Namespace) -> int:
         args.query,
         args.agent_config_path,
         extra_attachments=args.attachment,
+        dry_run=args.dry_run,
+    )
+
+
+def handle_warmup(args: argparse.Namespace) -> int:
+    """Handle the 'warmup' subcommand."""
+    subagent_root = args.target_root if args.target_root else get_subagent_root()
+    return warmup_subagents(
+        subagent_root=subagent_root,
+        subagents=args.subagents,
         dry_run=args.dry_run,
     )
