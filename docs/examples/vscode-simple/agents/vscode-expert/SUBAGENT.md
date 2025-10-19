@@ -1,7 +1,8 @@
 ---
 description: 'VS Code prompt & instruction system expert'
+tools: ['edit', 'runNotebooks', 'search', 'new', 'runCommands', 'runTasks', 'usages', 'vscodeAPI', 'problems', 'changes', 'testFailure', 'openSimpleBrowser', 'fetch', 'githubRepo', 'extensions', 'todos', 'runTests']
+model: Grok Code Fast 1 (copilot)
 skills: ['research']
-model: GPT-5 mini (copilot)
 ---
 
 interface VSCodeExpert {

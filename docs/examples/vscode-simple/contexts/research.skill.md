@@ -1,7 +1,5 @@
 ---
 description: Research Skill with grounded answers.
-tools: ['edit', 'runNotebooks', 'search', 'new', 'runCommands', 'runTasks', 'usages', 'vscodeAPI', 'problems', 'changes', 'testFailure', 'openSimpleBrowser', 'fetch', 'githubRepo', 'extensions', 'todos', 'runTests']
-model: Grok Code Fast 1 (copilot)
 ---
 
 function research(domain, sources) {
