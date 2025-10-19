@@ -4,7 +4,7 @@ LMSpace is a CLI tool for managing workspace agents across different backends. I
 
 ## Features
 
-### VS Code Workspace Agents ✅
+### VS Code Workspace Agents
 
 Manage isolated VS Code workspaces for parallel agent development sessions:
 
@@ -32,7 +32,10 @@ The project uses `uv` for dependency and environment management.
 ### Installation
 
 ```powershell
-# Install lmspace
+# Install lmspace as a uv-managed tool (recommended for end users)
+uv tool install lmspace
+
+# Install via uv pip (useful when managing a virtualenv manually)
 uv pip install lmspace
 
 # Or for development
