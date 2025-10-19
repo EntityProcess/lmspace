@@ -117,7 +117,7 @@ def launch_agent(
         if subagent_dir is None:
             print(
                 "error: No unlocked subagents available. Please provision more subagents with:\n"
-                "  uv run provision.py --subagents <count>",
+                "  lmspace code provision --subagents <count>",
                 file=sys.stderr,
             )
             return 1
@@ -205,7 +205,7 @@ def main() -> int:
         type=Path,
         help=(
             "Path to the agent configuration directory (e.g., "
-            "'domains/glow/agents/glow-ctf')"
+            "'agents/glow-ctf')"
         ),
     )
     parser.add_argument(

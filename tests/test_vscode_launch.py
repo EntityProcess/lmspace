@@ -1,0 +1,125 @@
+"""Tests for VS Code workspace agent launcher."""
+
+from __future__ import annotations
+
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from lmspace.vscode.launch_agent import (
+    find_unlocked_subagent,
+    copy_agent_config,
+    create_subagent_lock,
+    DEFAULT_LOCK_NAME,
+)
+
+
+@pytest.fixture
+def subagent_root(tmp_path: Path) -> Path:
+    """Create a subagent root with some test subagents."""
+    root = tmp_path / "agents"
+    root.mkdir()
+
+    # Create three subagents: one locked, two unlocked
+    for i in range(1, 4):
+        subagent = root / f"subagent-{i}"
+        subagent.mkdir()
+
+    # Lock subagent-1
+    (root / "subagent-1" / DEFAULT_LOCK_NAME).touch()
+
+    return root
+
+
+@pytest.fixture
+def agent_template(tmp_path: Path) -> Path:
+    """Create a minimal agent template."""
+    template = tmp_path / "agent-template"
+    template.mkdir()
+    (template / "subagent.chatmode.md").write_text("# Test Agent\n")
+    (template / "subagent.code-workspace").write_text('{"folders": []}\n')
+    return template
+
+
+def test_find_unlocked_subagent(subagent_root: Path) -> None:
+    """Test finding the first unlocked subagent."""
+    unlocked = find_unlocked_subagent(subagent_root)
+    assert unlocked is not None
+    assert unlocked.name == "subagent-2"
+
+
+def test_find_unlocked_subagent_none_available(tmp_path: Path) -> None:
+    """Test when no unlocked subagents are available."""
+    root = tmp_path / "agents"
+    root.mkdir()
+
+    # Create one locked subagent
+    subagent = root / "subagent-1"
+    subagent.mkdir()
+    (subagent / DEFAULT_LOCK_NAME).touch()
+
+    unlocked = find_unlocked_subagent(root)
+    assert unlocked is None
+
+
+def test_find_unlocked_subagent_nonexistent_root(tmp_path: Path) -> None:
+    """Test when the subagent root doesn't exist."""
+    root = tmp_path / "nonexistent"
+    unlocked = find_unlocked_subagent(root)
+    assert unlocked is None
+
+
+def test_copy_agent_config(agent_template: Path, tmp_path: Path) -> None:
+    """Test copying agent configuration files."""
+    subagent = tmp_path / "subagent-1"
+    subagent.mkdir()
+
+    result = copy_agent_config(agent_template, subagent)
+
+    assert "chatmode" in result
+    assert "workspace" in result
+    assert (subagent / "subagent.chatmode.md").exists()
+    assert (subagent / "subagent.code-workspace").exists()
+
+    # Check content was copied
+    chatmode_content = (subagent / "subagent.chatmode.md").read_text()
+    assert chatmode_content == "# Test Agent\n"
+
+
+def test_copy_agent_config_missing_chatmode(tmp_path: Path) -> None:
+    """Test error when chatmode file is missing."""
+    template = tmp_path / "template"
+    template.mkdir()
+    (template / "subagent.code-workspace").write_text("{}\n")
+
+    subagent = tmp_path / "subagent-1"
+    subagent.mkdir()
+
+    with pytest.raises(FileNotFoundError, match="chatmode not found"):
+        copy_agent_config(template, subagent)
+
+
+def test_copy_agent_config_missing_workspace(tmp_path: Path) -> None:
+    """Test error when workspace file is missing."""
+    template = tmp_path / "template"
+    template.mkdir()
+    (template / "subagent.chatmode.md").write_text("# Test\n")
+
+    subagent = tmp_path / "subagent-1"
+    subagent.mkdir()
+
+    with pytest.raises(FileNotFoundError, match="workspace not found"):
+        copy_agent_config(template, subagent)
+
+
+def test_create_subagent_lock(tmp_path: Path) -> None:
+    """Test creating a subagent lock file."""
+    subagent = tmp_path / "subagent-1"
+    subagent.mkdir()
+
+    lock_file = create_subagent_lock(subagent)
+
+    assert lock_file.exists()
+    assert lock_file.name == DEFAULT_LOCK_NAME
+    assert lock_file.parent == subagent

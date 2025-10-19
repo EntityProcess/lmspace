@@ -24,7 +24,7 @@ The tool is now available globally via the `lmspace` command.
 
 ## Delivered Capabilities (Current Implementation)
 
-### Provisioning Workflow
+### Provisioning Workflow ✅ Delivered
 
 - Run `lmspace code provision --subagents <count>` to seed the subagent pool.
   The command copies the built-in `subagent-template` into
@@ -39,7 +39,7 @@ The tool is now available globally via the `lmspace` command.
 - Custom templates can be specified with `--template <path>` to override the
   default built-in template.
 
-### Runtime Lifecycle
+### Runtime Lifecycle ✅ Delivered
 
 - `lmspace code launch` creates `subagent.lock` when it claims a workspace. The
   lock is not released automatically; wrapper flows or clean-up scripts must
@@ -48,15 +48,15 @@ The tool is now available globally via the `lmspace` command.
   different subagent directories. Keep transient files (logs, scratch data)
   inside the subagent folder to avoid polluting the template.
 
-### Wrapper Entry Points
+### Wrapper Entry Points ✅ Delivered
 
-- Launch agents via the standalone CLI:
+- Launch agents via the CLI:
   ```pwsh
   lmspace code launch <agent_config_path> "{user_query}"
   ```
 - Example usage from any prompts repository:
   ```pwsh
-  lmspace code launch agents/glow-ctf "{user_query}"
+  lmspace code launch agents/glow-ctf "Help me debug this issue"
   ```
 - Launch parameters:
   - `agent_config_path` must point to an agent configuration directory in your
@@ -65,6 +65,7 @@ The tool is now available globally via the `lmspace` command.
   - The launcher copies `subagent.chatmode.md` and `subagent.code-workspace`
     from the agent config into the claimed subagent directory before starting
     VS Code, but it does not attach them to the chat session automatically.
+  - Additional attachments can be passed with `--attachment <path>` (repeatable).
 - The launcher emits a compact JSON payload, currently limited to
   `{"success": true, "subagent_name": "subagent-1"}` (or an `error`
   message). Wrapper prompts should read the JSON, report the assigned
@@ -105,8 +106,6 @@ The tool is now available globally via the `lmspace` command.
 ## Roadmap (Not Yet Implemented)
 
 ### Short-term (VS Code Agents)
-- Implement the `lmspace code` CLI subcommand with `provision` and `launch`
-  actions (currently the functionality exists in standalone scripts).
 - Promote wrapper entry points to SudoLang programs that enforce
   `subagent.chatmode.md` validation and orchestrate attachments automatically.
 - Expand the launcher JSON response with resolved workspace paths,

@@ -1,9 +1,16 @@
 # LMSpace
 
-The LMSpace provisions OpenAI assistants and VS Code agents from config files. Each config describes a custom GPT-style agent with instructions and knowledge-base sources.
+LMSpace is a CLI tool for managing workspace agents across different backends. It currently supports VS Code workspace agents with plans to add support for OpenAI Agents and Azure AI Agents.
 
-For OpenAI assistants: The runner downloads the referenced files, uploads them to Azure OpenAI using the Assistants API (file search).
-For VS Code agents: The runner creates a workspace with the required context and launches a VS Code instance.
+## Features
+
+### VS Code Workspace Agents ✅
+
+Manage isolated VS Code workspaces for parallel agent development sessions:
+
+- **Provision subagents**: Create a pool of isolated workspace directories
+- **Launch agents**: Automatically claim and launch VS Code with agent configurations
+- **Lock management**: Prevent conflicts when running multiple agents in parallel
 
 The project uses `uv` for dependency and environment management.
 
@@ -18,30 +25,58 @@ The project uses `uv` for dependency and environment management.
 
 - Python 3.12+
 - [uv](https://github.com/astral-sh/uv) installed locally (`pip install uv`)
-- Azure OpenAI resource with Assistants API v2 enabled
+- VS Code installed for workspace agent functionality
 
-Before provisioning real assistants, set the following environment variables:
+## Quick Start
 
-- `AZURE_OPENAI_ENDPOINT`
-- `AZURE_OPENAI_API_VERSION`
-- `AZURE_OPENAI_DEPLOYMENT_NAME`
-- `AZURE_OPENAI_API_KEY` *(or rely on Azure AD with `DefaultAzureCredential`)*
-
-Optional environment variables:
-
-- `GITHUB_TOKEN` for private GitHub file downloads
-- `LMSPACE_VECTOR_PREFIX` to customize vector store names
-- `LMSPACE_LOG_LEVEL` for logging (default `info`)
-
-## Getting Started
+### Installation
 
 ```powershell
-# Create the environment using uv
-uv venv
+# Install lmspace
+uv pip install lmspace
 
-# Install the package in editable mode with development tools
-uv pip install -e . --extra dev
+# Or for development
+uv pip install -e .[dev]
 ```
+
+### Using VS Code Workspace Agents
+
+1. **Provision subagent workspaces**:
+   ```powershell
+   lmspace code provision --subagents 5
+   ```
+   This creates 5 isolated workspace directories in `~/.ai-prompts/agents/`.
+
+2. **Launch an agent**:
+   ```powershell
+   lmspace code launch <agent_config_path> "Your query here"
+   ```
+   This claims an unlocked subagent, copies your agent configuration, and opens VS Code.
+
+3. **Example agent configuration** (`my-agent/` directory):
+   - `subagent.chatmode.md` - Chat mode configuration and instructions
+   - `subagent.code-workspace` - VS Code workspace settings
+
+### Command Reference
+
+**Provision subagents**:
+```powershell
+lmspace code provision --subagents <count> [--refresh] [--template <path>] [--target-root <path>]
+```
+- `--subagents <count>`: Number of workspaces to create
+- `--refresh`: Rebuild unlocked workspaces
+- `--template <path>`: Custom template directory
+- `--target-root <path>`: Custom destination (default: `~/.ai-prompts/agents`)
+- `--dry-run`: Preview without making changes
+
+**Launch an agent**:
+```powershell
+lmspace code launch <agent_config_path> <query> [--attachment <path>] [--dry-run]
+```
+- `<agent_config_path>`: Path to agent configuration directory
+- `<query>`: User query to pass to the agent
+- `--attachment <path>`: Additional files to attach (repeatable)
+- `--dry-run`: Preview without launching VS Code
 
 ## Development
 
