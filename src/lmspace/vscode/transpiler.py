@@ -113,12 +113,33 @@ def _resolve_skill_body(
 ) -> str:
     """Load a skill body from the agent or workspace contexts."""
     attempted_paths: list[Path] = []
-    contexts_to_check = [agent_dir / CONTEXTS_DIRNAME]
+    skill_filename = f"{skill}{SKILL_SUFFIX}"
+    
+    # Search order:
+    # 1. Sibling to SUBAGENT.md (e.g., agents/vscode-expert/research.skill.md)
+    # 2. In the agents folder itself (e.g., agents/research.skill.md)
+    # 3. Sibling contexts folder (e.g., contexts/research.skill.md)
+    # 4. Explicit workspace_root/contexts if provided
+    
+    locations_to_check: list[Path] = [
+        agent_dir / skill_filename,  # Sibling to SUBAGENT.md
+    ]
+    
+    # If agent is in an agents/ directory, check the agents/ folder and sibling contexts/
+    if agent_dir.parent.name == "agents":
+        agents_folder = agent_dir.parent
+        locations_to_check.append(agents_folder / skill_filename)  # In agents/ folder
+        
+        workspace_contexts = agents_folder.parent / CONTEXTS_DIRNAME / skill_filename
+        locations_to_check.append(workspace_contexts)  # Sibling contexts/
+    
+    # Also check explicit workspace_root if provided
     if workspace_root is not None:
-        contexts_to_check.append(workspace_root / CONTEXTS_DIRNAME)
+        workspace_skill = workspace_root / CONTEXTS_DIRNAME / skill_filename
+        if workspace_skill not in locations_to_check:
+            locations_to_check.append(workspace_skill)
 
-    for context_dir in contexts_to_check:
-        skill_path = context_dir / f"{skill}{SKILL_SUFFIX}"
+    for skill_path in locations_to_check:
         attempted_paths.append(skill_path)
         if skill_path.exists():
             text = skill_path.read_text(encoding="utf-8")
