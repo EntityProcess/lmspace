@@ -21,7 +21,7 @@ def add_provision_parser(subparsers: Any) -> None:
         "provision",
         help="Provision subagent workspace directories",
         description=(
-            "Copy the subagent template into ~/.lmspace/agents "
+            "Copy the subagent template into ~/.lmspace/vscode-agents "
             "so multiple VS Code instances can run isolated subagents."
         ),
     )
@@ -43,10 +43,10 @@ def add_provision_parser(subparsers: Any) -> None:
     parser.add_argument(
         "--target-root",
         type=Path,
-        default=Path.home() / ".lmspace" / "agents",
+        default=Path.home() / ".lmspace" / "vscode-agents",
         help=(
             "Destination root for subagent directories. Defaults to "
-            "~/.lmspace/agents."
+            "~/.lmspace/vscode-agents."
         ),
     )
     parser.add_argument(
@@ -89,7 +89,7 @@ def add_chat_parser(subparsers: Any) -> None:
         help="User query to pass to the agent",
     )
     parser.add_argument(
-        "--attachment",
+        "-a", "--attachment",
         action="append",
         type=Path,
         default=None,
@@ -135,7 +135,7 @@ def add_warmup_parser(subparsers: Any) -> None:
         default=None,
         help=(
             "Root directory containing subagents. Defaults to "
-            "~/.lmspace/agents."
+            "~/.lmspace/vscode-agents."
         ),
     )
     parser.add_argument(
@@ -171,10 +171,10 @@ def add_unlock_parser(subparsers: Any) -> None:
     parser.add_argument(
         "--target-root",
         type=Path,
-        default=Path.home() / ".lmspace" / "agents",
+        default=Path.home() / ".lmspace" / "vscode-agents",
         help=(
             "Root directory containing subagents. Defaults to "
-            "~/.lmspace/agents."
+            "~/.lmspace/vscode-agents."
         ),
     )
     parser.add_argument(

@@ -25,7 +25,7 @@ DEFAULT_LOCK_NAME = "subagent.lock"
 
 def get_subagent_root() -> Path:
     """Get the root directory for subagents."""
-    return Path.home() / ".lmspace" / "agents"
+    return Path.home() / ".lmspace" / "vscode-agents"
 
 
 def get_all_subagent_workspaces(subagent_root: Path) -> list[Path]:
@@ -249,7 +249,9 @@ def launch_agent(
                     )
                 resolved_extra.append(str(resolved_attachment))
 
-        attachment_paths: list[str] = resolved_extra
+        # Add the transpiled chatmode as an attachment
+        chatmode_path = subagent_dir / "subagent.chatmode.md"
+        attachment_paths: list[str] = [str(chatmode_path)] + resolved_extra
         
         # Generate timestamp for response file
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
@@ -439,7 +441,7 @@ def main() -> int:
         help="User query to pass to the agent",
     )
     parser.add_argument(
-        "--attachment",
+        "-a", "--attachment",
         action="append",
         type=Path,
         default=None,

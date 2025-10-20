@@ -109,7 +109,7 @@ def test_transpile_includes_skill_bodies_from_agent_and_workspace(tmp_path: Path
     )
 
     _write(
-        agent_dir / "contexts" / "agent-skill.skill.md",
+        agent_dir / "agent-skill.skill.md",
         """
         ---
         summary: agent skill
@@ -192,5 +192,5 @@ def test_transpile_missing_skill_reports_all_attempts(tmp_path: Path) -> None:
 
     message = str(exc.value)
     assert "unknown" in message
-    assert str(agent_dir / "contexts" / "unknown.skill.md") in message
+    assert str(agent_dir / "unknown.skill.md") in message
     assert str(workspace_root / "contexts" / "unknown.skill.md") in message
