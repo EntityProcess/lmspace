@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-import shutil
+from argparse import Namespace
 from pathlib import Path
 
 import pytest
 
 from lmspace.vscode.provision import provision_subagents, DEFAULT_LOCK_NAME
+from lmspace.vscode.cli import handle_provision
 
 
 @pytest.fixture
@@ -205,3 +206,69 @@ def test_provision_zero_subagents(template_dir: Path, target_root: Path) -> None
             refresh=False,
             dry_run=False,
         )
+
+
+def test_handle_provision_runs_warmup(
+    template_dir: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Ensure handle_provision triggers warmup when requested."""
+
+    target_root = tmp_path / "agents"
+    args = Namespace(
+        template=template_dir,
+        target_root=target_root,
+        subagents=1,
+        lock_name=DEFAULT_LOCK_NAME,
+        refresh=False,
+        dry_run=False,
+        warmup=True,
+    )
+
+    warmup_calls: dict[str, object] = {}
+
+    def fake_warmup(*, subagent_root: Path, subagents: int, dry_run: bool) -> int:
+        warmup_calls["root"] = subagent_root
+        warmup_calls["count"] = subagents
+        warmup_calls["dry_run"] = dry_run
+        return 0
+
+    monkeypatch.setattr("lmspace.vscode.cli.warmup_subagents", fake_warmup)
+
+    result = handle_provision(args)
+
+    assert result == 0
+    assert warmup_calls == {
+        "root": target_root,
+        "count": 1,
+        "dry_run": False,
+    }
+
+
+def test_handle_provision_skips_warmup_during_dry_run(
+    template_dir: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Ensure warmup is not triggered when provisioning is a dry run."""
+
+    target_root = tmp_path / "agents"
+    args = Namespace(
+        template=template_dir,
+        target_root=target_root,
+        subagents=1,
+        lock_name=DEFAULT_LOCK_NAME,
+        refresh=False,
+        dry_run=True,
+        warmup=True,
+    )
+
+    def fake_warmup(*args: object, **kwargs: object) -> int:  # pragma: no cover
+        raise AssertionError("warmup should not be called during dry run")
+
+    monkeypatch.setattr("lmspace.vscode.cli.warmup_subagents", fake_warmup)
+
+    result = handle_provision(args)
+
+    assert result == 0

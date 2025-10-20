@@ -37,25 +37,19 @@ uv pip install -e .[dev]
 
 ### Using VS Code Workspace Agents
 
-1. **Provision subagent workspaces**:
+1. **Provision and optionally warm up subagent workspaces**:
    ```powershell
-   lmspace code provision --subagents 5
+   lmspace code provision --subagents 5 [--warmup]
    ```
-   This creates 5 isolated workspace directories in `~/.lmspace/vscode-agents/`.
+   This creates 5 isolated workspace directories in `~/.lmspace/vscode-agents/`. Add `--warmup` to open the newly provisioned workspaces immediately.
 
-2. **Warm up workspaces** (optional but recommended):
-   ```powershell
-   lmspace code warmup
-   ```
-   Opens all provisioned workspaces in VS Code so they're ready for instant use.
-
-3. **Start a chat with an agent**:
+2. **Start a chat with an agent**:
    ```powershell
    lmspace code chat <agent_config_path> "Your query here"
    ```
    This claims an unlocked subagent, copies your agent configuration, and opens VS Code.
 
-4. **Example agent configuration** (`my-agent/` directory):
+3. **Example agent configuration** (`my-agent/` directory):
    - `SUBAGENT.md` - Authoritative chat mode definition; runtime launches transpile to `subagent.chatmode.md`
    - `subagent.code-workspace` - VS Code workspace settings
 
@@ -63,13 +57,14 @@ uv pip install -e .[dev]
 
 **Provision subagents**:
 ```powershell
-lmspace code provision --subagents <count> [--refresh] [--template <path>] [--target-root <path>]
+lmspace code provision --subagents <count> [--refresh] [--template <path>] [--target-root <path>] [--warmup]
 ```
 - `--subagents <count>`: Number of workspaces to create
 - `--refresh`: Rebuild unlocked workspaces
 - `--template <path>`: Custom template directory
 - `--target-root <path>`: Custom destination (default: `~/.lmspace/vscode-agents`)
 - `--dry-run`: Preview without making changes
+- `--warmup`: Launch VS Code for the provisioned workspaces once provisioning finishes
 
 **Warm up workspaces**:
 ```powershell

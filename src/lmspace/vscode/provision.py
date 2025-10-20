@@ -8,6 +8,11 @@ import sys
 from pathlib import Path
 from typing import List, Tuple
 
+try:
+    from .launch_agent import warmup_subagents  # type: ignore
+except ImportError:  # pragma: no cover - fallback when executed as a script
+    from lmspace.vscode.launch_agent import warmup_subagents
+
 DEFAULT_LOCK_NAME = "subagent.lock"
 DEFAULT_TEMPLATE_DIR = (
     Path(__file__).resolve().parent / "subagent_template"
@@ -63,6 +68,14 @@ def parse_args() -> argparse.Namespace:
         "--dry-run",
         action="store_true",
         help="Show the planned operations without copying files.",
+    )
+    parser.add_argument(
+        "--warmup",
+        action="store_true",
+        help=(
+            "Warm up provisioned subagents after provisioning completes. "
+            "Ignored during dry runs."
+        ),
     )
     return parser.parse_args()
 
@@ -233,6 +246,18 @@ def main() -> int:
 
     if args.dry_run:
         print("dry run complete; no changes were made")
+        if args.warmup:
+            print("warmup skipped because this was a dry run")
+        return 0
+
+    if args.warmup:
+        warmup_exit = warmup_subagents(
+            subagent_root=args.target_root,
+            subagents=args.subagents,
+            dry_run=False,
+        )
+        if warmup_exit != 0:
+            return warmup_exit
 
     return 0
 

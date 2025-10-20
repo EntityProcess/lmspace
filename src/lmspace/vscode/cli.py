@@ -67,6 +67,14 @@ def add_provision_parser(subparsers: Any) -> None:
         action="store_true",
         help="Show the planned operations without copying files.",
     )
+    parser.add_argument(
+        "--warmup",
+        action="store_true",
+        help=(
+            "Warm up provisioned subagents after provisioning completes. "
+            "Ignored during dry runs."
+        ),
+    )
 
 
 def add_chat_parser(subparsers: Any) -> None:
@@ -227,6 +235,18 @@ def handle_provision(args: argparse.Namespace) -> int:
 
     if args.dry_run:
         print("dry run complete; no changes were made")
+        if args.warmup:
+            print("warmup skipped because this was a dry run")
+        return 0
+
+    if args.warmup:
+        warmup_exit = warmup_subagents(
+            subagent_root=args.target_root,
+            subagents=args.subagents,
+            dry_run=False,
+        )
+        if warmup_exit != 0:
+            return warmup_exit
 
     return 0
 
