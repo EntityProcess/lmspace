@@ -56,7 +56,7 @@ uv pip install -e .[dev]
    This claims an unlocked subagent, copies your agent configuration, and opens VS Code.
 
 4. **Example agent configuration** (`my-agent/` directory):
-   - `subagent.chatmode.md` - Chat mode configuration and instructions
+   - `SUBAGENT.md` - Authoritative chat mode definition; runtime launches transpile to `subagent.chatmode.md`
    - `subagent.code-workspace` - VS Code workspace settings
 
 ### Command Reference
@@ -97,3 +97,4 @@ uv pip install -e . --extra dev
 # Run tests
 uv run --extra dev pytest
 ```
+

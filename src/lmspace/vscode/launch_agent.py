@@ -14,6 +14,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, Sequence
 
+from .transpiler import (
+    SkillResolutionError,
+    SubagentDefinitionError,
+    transpile_subagent,
+)
+
 DEFAULT_LOCK_NAME = "subagent.lock"
 
 
@@ -75,40 +81,31 @@ def find_unlocked_subagent(subagent_root: Path) -> Optional[Path]:
 def copy_agent_config(
     agent_template_dir: Path,
     subagent_dir: Path,
+    *,
+    workspace_root: Optional[Path] = None,
 ) -> dict:
-    """Copy agent configuration to subagent.
-    
-    Copies subagent.chatmode.md and subagent.code-workspace from the template
-    to the subagent directory. Falls back to default template for workspace
-    if not found in agent template directory.
-    
-    Also creates a messages folder for storing responses.
-    
-    Raises FileNotFoundError if chatmode template is missing.
-    """
-    chatmode_src = agent_template_dir / "subagent.chatmode.md"
+    """Transpile chatmode and copy workspace assets into the subagent directory."""
     workspace_src = agent_template_dir / "subagent.code-workspace"
-    
-    if not chatmode_src.exists():
-        raise FileNotFoundError(f"Template chatmode not found: {chatmode_src}")
-    
-    # Fall back to default workspace template if not found in agent directory
+
     if not workspace_src.exists():
         default_template_dir = get_default_template_dir()
         workspace_src = default_template_dir / "subagent.code-workspace"
         if not workspace_src.exists():
             raise FileNotFoundError(f"Default workspace template not found: {workspace_src}")
-    
+
     chatmode_dst = subagent_dir / "subagent.chatmode.md"
     workspace_dst = subagent_dir / "subagent.code-workspace"
-    
-    shutil.copy2(chatmode_src, chatmode_dst)
+
+    transpile_subagent(
+        agent_template_dir,
+        output_path=chatmode_dst,
+        workspace_root=workspace_root,
+    )
     shutil.copy2(workspace_src, workspace_dst)
-    
-    # Create messages folder for storing responses
+
     messages_dir = subagent_dir / "messages"
     messages_dir.mkdir(exist_ok=True)
-    
+
     return {
         "chatmode": str(chatmode_dst.resolve()),
         "workspace": str(workspace_dst.resolve()),
@@ -185,6 +182,7 @@ def launch_agent(
     extra_attachments: Optional[Sequence[Path]] = None,
     dry_run: bool = False,
     keep_messages: bool = False,
+    workspace_root: Optional[Path] = None,
 ) -> int:
     """Launch an agent in an isolated subagent.
     
@@ -196,6 +194,7 @@ def launch_agent(
             to the launched chat.
         dry_run: When True, report planned actions without launching VS Code.
         keep_messages: When True, skip cleanup of message files (req.md and res.md).
+        workspace_root: Optional workspace root whose contexts/ directory supplements agent-scoped skills.
     
     Returns:
         Exit code (0 for success, non-zero for failure)
@@ -224,11 +223,14 @@ def launch_agent(
         # Copy agent configuration
         if not dry_run:
             try:
-                copy_agent_config(agent_template_dir, subagent_dir)
-            except FileNotFoundError as e:
-                print(f"error: {e}", file=sys.stderr)
+                copy_agent_config(
+                    agent_template_dir,
+                    subagent_dir,
+                    workspace_root=workspace_root,
+                )
+            except (FileNotFoundError, SubagentDefinitionError, SkillResolutionError) as error:
+                print(f"error: {error}", file=sys.stderr)
                 return 1
-        
         # Create subagent lock
         if not dry_run:
             try:

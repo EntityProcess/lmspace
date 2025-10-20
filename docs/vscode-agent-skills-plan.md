@@ -33,3 +33,8 @@ Make `SUBAGENT.md` the authoritative definition for VS Code subagents and genera
 - Delete any committed `subagent.chatmode.md` files; generated copies live only in subagent runtime directories.
 - Move reusable behaviours into `contexts/*.skill.md` and list them under the `skills` frontmatter key of `SUBAGENT.md`.
 - Configure local environments via the existing `.env` template; no further configuration changes required.
+
+### Current Status
+- Implemented in `src/lmspace/vscode/transpiler.py` with `render_chatmode` and `transpile_subagent`.
+- `lmspace code transpile` supports `--output` and `--workspace-root` for manual materialisation.
+- `lmspace code chat` transpiles via `copy_agent_config`, so committed `subagent.chatmode.md` files are no longer needed.
