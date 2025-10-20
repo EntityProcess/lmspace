@@ -9,7 +9,11 @@ from typing import Any
 
 from .provision import provision_subagents, DEFAULT_TEMPLATE_DIR, DEFAULT_LOCK_NAME
 from .launch_agent import launch_agent, warmup_subagents, get_subagent_root
-
+from .transpiler import (
+    SkillResolutionError,
+    SubagentDefinitionError,
+    transpile_subagent,
+)
 
 def add_provision_parser(subparsers: Any) -> None:
     """Add the 'provision' subcommand parser."""
@@ -17,7 +21,7 @@ def add_provision_parser(subparsers: Any) -> None:
         "provision",
         help="Provision subagent workspace directories",
         description=(
-            "Copy the subagent template into ~/.lmspace/agents "
+            "Copy the subagent template into ~/.lmspace/vscode-agents "
             "so multiple VS Code instances can run isolated subagents."
         ),
     )
@@ -39,10 +43,10 @@ def add_provision_parser(subparsers: Any) -> None:
     parser.add_argument(
         "--target-root",
         type=Path,
-        default=Path.home() / ".lmspace" / "agents",
+        default=Path.home() / ".lmspace" / "vscode-agents",
         help=(
             "Destination root for subagent directories. Defaults to "
-            "~/.lmspace/agents."
+            "~/.lmspace/vscode-agents."
         ),
     )
     parser.add_argument(
@@ -85,13 +89,21 @@ def add_chat_parser(subparsers: Any) -> None:
         help="User query to pass to the agent",
     )
     parser.add_argument(
-        "--attachment",
+        "-a", "--attachment",
         action="append",
         type=Path,
         default=None,
         help=(
             "Additional attachment to forward to the chat. "
             "Repeat for multiple attachments."
+        ),
+    )
+    parser.add_argument(
+        "--workspace-root",
+        type=Path,
+        default=None,
+        help=(
+            "Optional workspace root whose contexts/ directory is checked after the agent's contexts."
         ),
     )
     parser.add_argument(
@@ -123,7 +135,7 @@ def add_warmup_parser(subparsers: Any) -> None:
         default=None,
         help=(
             "Root directory containing subagents. Defaults to "
-            "~/.lmspace/agents."
+            "~/.lmspace/vscode-agents."
         ),
     )
     parser.add_argument(
@@ -159,10 +171,10 @@ def add_unlock_parser(subparsers: Any) -> None:
     parser.add_argument(
         "--target-root",
         type=Path,
-        default=Path.home() / ".lmspace" / "agents",
+        default=Path.home() / ".lmspace" / "vscode-agents",
         help=(
             "Root directory containing subagents. Defaults to "
-            "~/.lmspace/agents."
+            "~/.lmspace/vscode-agents."
         ),
     )
     parser.add_argument(
@@ -226,6 +238,7 @@ def handle_chat(args: argparse.Namespace) -> int:
         args.agent_config_path,
         extra_attachments=args.attachment,
         dry_run=args.dry_run,
+        workspace_root=args.workspace_root,
     )
 
 
@@ -269,3 +282,56 @@ def handle_unlock(args: argparse.Namespace) -> int:
         print("dry run complete; no changes were made")
     
     return 0
+
+
+def add_transpile_parser(subparsers: Any) -> None:
+    """Add the 'transpile' subcommand parser."""
+    parser = subparsers.add_parser(
+        "transpile",
+        help="Generate a chatmode file from SUBAGENT.md",
+        description=(
+            "Compose subagent.chatmode.md from SUBAGENT.md and optional "
+            "skill snippets."
+        ),
+    )
+    parser.add_argument(
+        "agent_config_path",
+        type=Path,
+        help="Path to the agent configuration directory containing SUBAGENT.md",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help=(
+            "Optional path for the generated chatmode file. Defaults to "
+            "<agent>/subagent.chatmode.md."
+        ),
+    )
+    parser.add_argument(
+        "--workspace-root",
+        type=Path,
+        default=None,
+        help=(
+            "Optional workspace root whose contexts/ directory is searched "
+            "after the agent for skill snippets."
+        ),
+    )
+
+
+def handle_transpile(args: argparse.Namespace) -> int:
+    """Handle the 'transpile' subcommand."""
+    try:
+        output_path = transpile_subagent(
+            args.agent_config_path,
+            output_path=args.output,
+            workspace_root=args.workspace_root,
+        )
+    except (FileNotFoundError, SubagentDefinitionError, SkillResolutionError) as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 1
+
+    print(f"generated chatmode: {output_path}")
+    return 0
+
+

@@ -24,8 +24,8 @@ interface SubagentInvoker {
 }
 
 function findAgentPath(agentName) {
-  // Search for the agent's subagent.chatmode.md file in the workspace
-  searchPattern = `**/agents/${agentName}/subagent.chatmode.md`
+  // Search for the agent's SUBAGENT.md file in the workspace
+  searchPattern = `**/agents/${agentName}/SUBAGENT.md`
   
   results = fileSearch(searchPattern)
   
@@ -33,7 +33,7 @@ function findAgentPath(agentName) {
     throw "Agent not found: ${agentName}. Expected to find ${searchPattern}"
   }
   
-  // Extract the directory path (parent of subagent.chatmode.md)
+  // Extract the directory path (parent of SUBAGENT.md)
   agentConfigFile = results[0]
   agentPath = dirname(agentConfigFile)
   
@@ -63,3 +63,4 @@ workflow {
   2. invokeSubagent(query) // Automatically finds agent path first
   3. Return subagent response
 }
+
