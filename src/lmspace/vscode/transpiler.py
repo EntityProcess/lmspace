@@ -159,7 +159,15 @@ def _compose_chatmode(
     skill_bodies: Sequence[str],
 ) -> str:
     """Compose the final chatmode document."""
-    frontmatter_block = frontmatter_text.strip("\n")
+    # Remove the 'skills' line from frontmatter while preserving formatting
+    lines = frontmatter_text.splitlines(keepends=True)
+    filtered_lines = []
+    for line in lines:
+        # Skip lines that define the skills property
+        if not line.strip().startswith("skills:"):
+            filtered_lines.append(line)
+    
+    frontmatter_block = "".join(filtered_lines).strip("\n")
 
     sections: list[str] = []
     body_section = body.strip("\n")

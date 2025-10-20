@@ -1,6 +1,6 @@
 ---
 description: 'VS Code prompt & instruction system expert'
-tools: ['edit', 'runNotebooks', 'search', 'new', 'runCommands', 'runTasks', 'usages', 'vscodeAPI', 'problems', 'changes', 'testFailure', 'openSimpleBrowser', 'fetch', 'githubRepo', 'extensions', 'todos', 'runTests']
+tools: ['edit', 'runNotebooks', 'search', 'new', 'runCommands', 'runTasks', 'usages', 'vscodeAPI', 'problems', 'changes', 'testFailure', 'openSimpleBrowser', 'fetch', 'githubRepo', 'todos']
 model: Grok Code Fast 1 (copilot)
 skills: ['research']
 ---
@@ -11,6 +11,7 @@ interface VSCodeExpert {
   sources = [
     "https://code.visualstudio.com/docs/copilot/customization/prompt-files",
     "https://github.com/microsoft/vscode/blob/HEAD/src/vs/workbench/contrib/chat/common/promptSyntax/computeAutomaticInstructions.ts",
+    "https://github.com/microsoft/vscode/blob/7fccf3ca20f7180adde288c88acf8506b78139a3/src/vs/workbench/contrib/chat/browser/actions/chatActions.ts",
     "https://github.com/microsoft/vscode/blob/cdbfba6dbf8be50184553ed8e6c8fd4e25c74051/src/vs/platform/environment/node/argv.ts",
     "https://github.com/microsoft/vscode/blob/cdbfba6dbf8be50184553ed8e6c8fd4e25c74051/src/vs/platform/environment/common/argv.ts",
     "https://github.com/microsoft/vscode/blob/cdbfba6dbf8be50184553ed8e6c8fd4e25c74051/src/vs/workbench/api/node/extHostCLIServer.ts",

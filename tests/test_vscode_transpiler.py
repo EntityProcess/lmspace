@@ -44,6 +44,52 @@ def test_transpile_subagent_writes_chatmode(tmp_path: Path) -> None:
     assert content.rstrip().endswith("interface Example {}")
 
 
+def test_transpile_excludes_skills_from_chatmode_frontmatter(tmp_path: Path) -> None:
+    agent_dir = tmp_path / "agent"
+    agent_dir.mkdir()
+
+    _write(
+        agent_dir / "SUBAGENT.md",
+        """
+        ---
+        description: Agent with skills
+        model: test-model
+        tools: [one, two]
+        skills: [research, analysis]
+        ---
+
+        Agent body.
+        """,
+    )
+    
+    # Create the skill files so the transpiler can resolve them
+    _write(
+        agent_dir / "research.skill.md",
+        """
+        Research skill content.
+        """,
+    )
+    
+    _write(
+        agent_dir / "analysis.skill.md",
+        """
+        Analysis skill content.
+        """,
+    )
+
+    chatmode = render_chatmode(agent_dir)
+    
+    # The skills property should NOT appear in the chatmode frontmatter
+    assert "skills:" not in chatmode
+    # But other properties should still be there
+    assert "description: Agent with skills" in chatmode
+    assert "model: test-model" in chatmode
+    assert "tools:" in chatmode
+    # And the skill bodies should be included
+    assert "Research skill content." in chatmode
+    assert "Analysis skill content." in chatmode
+
+
 def test_transpile_includes_skill_bodies_from_agent_and_workspace(tmp_path: Path) -> None:
     agent_dir = tmp_path / "agent"
     agent_dir.mkdir()
