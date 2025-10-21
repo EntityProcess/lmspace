@@ -1,7 +1,7 @@
 ---
 description: 'Dependency-aware subagent orchestrator'
 mode: 'agent'
-tools: ['runCommands', 'search']
+tools: ['runCommands', 'runTasks', 'search', 'new', 'runSubagent']
 ---
 
 SubagentInvoker {
@@ -15,6 +15,8 @@ SubagentInvoker {
   }
   
   constraints {
+    * When uncertain about agent relevance, prefer built-in runSubagent
+    * Assess query-agent domain alignment before using custom agents
     * Locate agent via fileSearch(`**/agents/${agentName}`)
     * Preserve query semantics
     * Analyze dependencies before execution
@@ -26,19 +28,22 @@ function findAgentPath(agentName);
 function analyzeQueryDependencies(queries); // → queries grouped by dependencies
 function pollQueries(responsePaths); // → responses when all exist or timeout
 function launchQuery(agentPath, query); // → responsePath
+function executeWithRunSubagent(query); // → response
+function shouldUseCustomAgent(agentName, queries); // → bool (checks availability, relevance, domain alignment)
 
 workflow {
   queries = parseQueries(userInput)
-  agentPath = findAgentPath(agentName)
-  queryGroups = analyzeQueryDependencies(queries)
   
-  allResponses = []
-  
-  for each queries in queryGroups {
-    launchResults = queries |> map(q => launchQuery(agentPath, q))
-    responses = pollQueries(launchResults.map(r => r.responsePath))
-    allResponses += responses.withOriginalIndices()
+  executor = match (shouldUseCustomAgent(agentName, queries)) {
+    case false => executeWithRunSubagent
+    case true => (q) => launchQuery(findAgentPath(agentName), q)
   }
   
-  allResponses.sortByIndex() |> forEach(emit)
+  queryGroups = analyzeQueryDependencies(queries)
+  
+  for each group in queryGroups {
+    results = group |> map(executor)
+    responses = pollQueries(results)
+    responses |> forEach(emit)
+  }
 }
