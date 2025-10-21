@@ -350,8 +350,7 @@ Do not proceed to step 2 until your response is completely written to the tempor
             )
             print(
                 f"\nAgent launched. Response will be written to:\n  {response_file_final}\n"
-                f"Monitor: check if {response_file_tmp} has been renamed to {response_file_final.name}\n"
-                f"Wait: lmspace code chat <agent> <query> --wait",
+                f"Monitor: check if {response_file_tmp} has been renamed to {response_file_final.name}",
                 file=sys.stderr,
             )
             return 0
