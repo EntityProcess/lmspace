@@ -8,59 +8,43 @@ interface SubagentInvoker {
   role: "Generic subagent orchestrator"
   
   config {
-    // agentName: The name of the subagent to invoke
-    // This should be overridden by the specific prompt configuration
     agentName = "${AGENT_NAME}"
     command = "lmspace code chat"
+    pollInterval = 2 // seconds
+    maxPolls = 60 // 2 minute timeout
   }
   
   constraints {
-    * Dynamically locate agent path using search tool before invoking subagent
-    * Pass user query to subagent unmodified
-    * Wait for subagent completion before responding
-    * Return subagent output directly to user
-    * Each subagent defines its own data sources, system prompt, and constraints
+    * Locate agent path via fileSearch(`**/agents/${agentName}/SUBAGENT.md`)
+    * Pass queries unmodified to subagent
+    * Process multiple queries sequentially (one completes before next starts)
+    * Poll response file every ${pollInterval}s until exists or timeout
+    * Return subagent output directly
   }
 }
 
-function findAgentPath(agentName) {
-  // Search for the agent's SUBAGENT.md file in the workspace
-  searchPattern = `**/agents/${agentName}/SUBAGENT.md`
-  
-  results = fileSearch(searchPattern)
-  
-  if (results.length === 0) {
-    throw "Agent not found: ${agentName}. Expected to find ${searchPattern}"
+function findAgentPath(agentName);
+
+function pollResponse(responsePath) {
+  for (i in 1..maxPolls) {
+    if (exists(responsePath)) return read(responsePath)
+    sleep(pollInterval)
   }
-  
-  // Extract the directory path (parent of SUBAGENT.md)
-  agentConfigFile = results[0]
-  agentPath = dirname(agentConfigFile)
-  
-  return agentPath
+  throw "Timeout waiting for ${responsePath}"
 }
 
-function invokeSubagent(userQuery) {
-  // Dynamically locate the agent configuration directory
+function invokeSubagent(query) {
   agentPath = findAgentPath(agentName)
   
-  cmd = `${command} "${agentPath}" "${userQuery}"`
+  result = runInTerminal(`${command} "${agentPath}" "${query}"`)
+  responsePath = parseJSON(result.output).response_file
   
-  result = runInTerminal(cmd, {
-    explanation: `Invoking ${agentName} subagent to answer query`,
-    isBackground: false
-  })
-  
-  if (result.exitCode !== 0) {
-    throw "Subagent execution failed: ${result.error}"
-  }
-  
-  emit(result.output)
+  response = pollResponse(responsePath)
+  emit(response)
 }
 
 workflow {
-  1. Receive user query
-  2. invokeSubagent(query) // Automatically finds agent path first
-  3. Return subagent response
+  queries = parseQueries(userInput)
+  for each query, invokeSubagent(query)
 }
 
