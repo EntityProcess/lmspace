@@ -60,9 +60,9 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
-        "--refresh",
+        "--force",
         action="store_true",
-        help="Rebuild unlocked subagents even if they already exist.",
+        help="Overwrite unlocked subagent directories even if they already exist.",
     )
     parser.add_argument(
         "--dry-run",
@@ -86,10 +86,14 @@ def provision_subagents(
     target_root: Path,
     subagents: int,
     lock_name: str,
-    refresh: bool,
+    force: bool,
     dry_run: bool,
 ) -> Tuple[List[Path], List[Path], List[Path]]:
     """Provision subagent directories and return summary lists.
+
+    This function ensures there are at least `subagents` unlocked subagent directories.
+    If there are fewer unlocked subagents than requested, it provisions additional ones
+    with higher numbers.
 
     Returns three lists: created subagents, subagents skipped because they already
     existed, and subagents skipped because they were locked.
@@ -106,42 +110,97 @@ def provision_subagents(
     if not dry_run:
         target_path.mkdir(parents=True, exist_ok=True)
 
+    # First, scan existing subagents to count unlocked ones and find the highest number
+    existing_subagents = sorted(
+        (d for d in target_path.iterdir() if d.is_dir() and d.name.startswith("subagent-")),
+        key=lambda d: int(d.name.split("-")[1])
+    ) if target_path.exists() else []
+
+    unlocked_count = 0
+    highest_number = 0
+    locked_subagents = []
+
+    for subagent_dir in existing_subagents:
+        subagent_number = int(subagent_dir.name.split("-")[1])
+        highest_number = max(highest_number, subagent_number)
+        lock_file = subagent_dir / lock_name
+        if not lock_file.exists():
+            unlocked_count += 1
+        else:
+            locked_subagents.append(subagent_dir)
+
+    # Calculate how many additional subagents we need to provision
+    additional_needed = max(0, subagents - unlocked_count)
+
     created: List[Path] = []
     skipped_existing: List[Path] = []
-    skipped_locked: List[Path] = []
+    skipped_locked: List[Path] = locked_subagents
 
-    for index in range(1, subagents + 1):
+    # Provision subagents starting from 1 up to the highest existing number
+    for index in range(1, highest_number + 1):
         subagent_dir = target_path / f"subagent-{index}"
         lock_file = subagent_dir / lock_name
 
         if subagent_dir.exists():
             if lock_file.exists():
-                skipped_locked.append(subagent_dir)
+                # Already in skipped_locked list
                 continue
-            if refresh:
+            if force:
                 if dry_run:
                     skipped_existing.append(subagent_dir)
                 else:
                     shutil.rmtree(subagent_dir)
+                    # Recreate it
+                    shutil.copytree(
+                        template_path,
+                        subagent_dir,
+                        ignore=shutil.ignore_patterns(
+                            "__pycache__",
+                            "*.pyc",
+                            "*.pyo",
+                            DEFAULT_LOCK_NAME,
+                        ),
+                    )
+                    created.append(subagent_dir)
             else:
                 skipped_existing.append(subagent_dir)
                 continue
+        else:
+            # Subagent doesn't exist, create it
+            if dry_run:
+                created.append(subagent_dir)
+            else:
+                shutil.copytree(
+                    template_path,
+                    subagent_dir,
+                    ignore=shutil.ignore_patterns(
+                        "__pycache__",
+                        "*.pyc",
+                        "*.pyo",
+                        DEFAULT_LOCK_NAME,
+                    ),
+                )
+                created.append(subagent_dir)
+
+    # Provision additional subagents beyond the highest existing number if needed
+    for i in range(additional_needed):
+        index = highest_number + i + 1
+        subagent_dir = target_path / f"subagent-{index}"
 
         if dry_run:
             created.append(subagent_dir)
-            continue
-
-        shutil.copytree(
-            template_path,
-            subagent_dir,
-            ignore=shutil.ignore_patterns(
-                "__pycache__",
-                "*.pyc",
-                "*.pyo",
-                DEFAULT_LOCK_NAME,
-            ),
-        )
-        created.append(subagent_dir)
+        else:
+            shutil.copytree(
+                template_path,
+                subagent_dir,
+                ignore=shutil.ignore_patterns(
+                    "__pycache__",
+                    "*.pyc",
+                    "*.pyo",
+                    DEFAULT_LOCK_NAME,
+                ),
+            )
+            created.append(subagent_dir)
 
     return created, skipped_existing, skipped_locked
 
@@ -219,20 +278,23 @@ def main() -> int:
             target_root=args.target_root,
             subagents=args.subagents,
             lock_name=args.lock_name,
-            refresh=args.refresh,
+            force=args.force,
             dry_run=args.dry_run,
         )
     except ValueError as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
 
+    # Calculate total unlocked subagents
+    total_unlocked = len(created) + len(skipped_existing)
+    
     if created:
         print("created subagents:")
         for path in created:
             print(f"  {path}")
 
     if skipped_existing:
-        print("skipped existing subagents:")
+        print("skipped existing unlocked subagents:")
         for path in skipped_existing:
             print(f"  {path}")
 
@@ -243,6 +305,9 @@ def main() -> int:
 
     if not any([created, skipped_existing, skipped_locked]):
         print("no operations were required")
+    
+    if total_unlocked > 0:
+        print(f"\ntotal unlocked subagents available: {total_unlocked}")
 
     if args.dry_run:
         print("dry run complete; no changes were made")

@@ -58,9 +58,9 @@ def add_provision_parser(subparsers: Any) -> None:
         ),
     )
     parser.add_argument(
-        "--refresh",
+        "--force",
         action="store_true",
-        help="Rebuild unlocked subagents even if they already exist.",
+        help="Overwrite unlocked subagent directories even if they already exist.",
     )
     parser.add_argument(
         "--dry-run",
@@ -118,6 +118,11 @@ def add_chat_parser(subparsers: Any) -> None:
         "--dry-run",
         action="store_true",
         help="Print what would be done without making changes",
+    )
+    parser.add_argument(
+        "-w", "--wait",
+        action="store_true",
+        help="Wait for response and print to stdout (sync mode). Default is async mode.",
     )
 
 
@@ -208,12 +213,15 @@ def handle_provision(args: argparse.Namespace) -> int:
             target_root=args.target_root,
             subagents=args.subagents,
             lock_name=args.lock_name,
-            refresh=args.refresh,
+            force=args.force,
             dry_run=args.dry_run,
         )
     except ValueError as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
+
+    # Calculate total unlocked subagents
+    total_unlocked = len(created) + len(skipped_existing)
 
     if created:
         print("created subagents:")
@@ -221,7 +229,7 @@ def handle_provision(args: argparse.Namespace) -> int:
             print(f"  {path}")
 
     if skipped_existing:
-        print("skipped existing subagents:")
+        print("skipped existing unlocked subagents:")
         for path in skipped_existing:
             print(f"  {path}")
 
@@ -232,6 +240,9 @@ def handle_provision(args: argparse.Namespace) -> int:
 
     if not any([created, skipped_existing, skipped_locked]):
         print("no operations were required")
+    
+    if total_unlocked > 0:
+        print(f"\ntotal unlocked subagents available: {total_unlocked}")
 
     if args.dry_run:
         print("dry run complete; no changes were made")
@@ -258,6 +269,7 @@ def handle_chat(args: argparse.Namespace) -> int:
         args.agent_config_path,
         extra_attachments=args.attachment,
         dry_run=args.dry_run,
+        wait=args.wait,
         workspace_root=args.workspace_root,
     )
 

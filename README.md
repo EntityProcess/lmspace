@@ -43,11 +43,18 @@ uv pip install -e .[dev]
    ```
    This creates 5 isolated workspace directories in `~/.lmspace/vscode-agents/`. Add `--warmup` to open the newly provisioned workspaces immediately.
 
-2. **Start a chat with an agent**:
+2. **Start a chat with an agent (async mode - default)**:
    ```powershell
    lmspace code chat <agent_config_path> "Your query here"
    ```
-   This claims an unlocked subagent, copies your agent configuration, and opens VS Code.
+   This claims an unlocked subagent, copies your agent configuration, opens VS Code, and returns immediately.
+   The agent writes its response to a file that you can monitor or read later.
+
+3. **Start a chat with an agent (sync mode - wait for response)**:
+   ```powershell
+   lmspace code chat <agent_config_path> "Your query here" --wait
+   ```
+   This blocks until the agent completes and prints the response to stdout.
 
 3. **Example agent configuration** (`my-agent/` directory):
    - `SUBAGENT.md` - Authoritative chat mode definition; runtime launches transpile to `subagent.chatmode.md`
@@ -57,10 +64,10 @@ uv pip install -e .[dev]
 
 **Provision subagents**:
 ```powershell
-lmspace code provision --subagents <count> [--refresh] [--template <path>] [--target-root <path>] [--warmup]
+lmspace code provision --subagents <count> [--force] [--template <path>] [--target-root <path>] [--warmup]
 ```
 - `--subagents <count>`: Number of workspaces to create
-- `--refresh`: Rebuild unlocked workspaces
+- `--force`: Overwrite existing unlocked subagent directories (respects `.lock` files)
 - `--template <path>`: Custom template directory
 - `--target-root <path>`: Custom destination (default: `~/.lmspace/vscode-agents`)
 - `--dry-run`: Preview without making changes
@@ -76,12 +83,15 @@ lmspace code warmup [--subagents <count>] [--target-root <path>] [--dry-run]
 
 **Start a chat with an agent**:
 ```powershell
-lmspace code chat <agent_config_path> <query> [--attachment <path>] [--dry-run]
+lmspace code chat <agent_config_path> <query> [--attachment <path>] [--wait] [--dry-run]
 ```
 - `<agent_config_path>`: Path to agent configuration directory
 - `<query>`: User query to pass to the agent
-- `--attachment <path>`: Additional files to attach (repeatable)
+- `--attachment <path>` / `-a`: Additional files to attach (repeatable)
+- `--wait` / `-w`: Wait for response and print to stdout (sync mode). Default is async mode.
 - `--dry-run`: Preview without launching VS Code
+
+**Note**: By default, chat runs in **async mode** - it returns immediately after launching VS Code, and the agent writes its response to a timestamped file in the subagent's `messages/` directory. Use `--wait` for synchronous operation.
 
 ## Development
 

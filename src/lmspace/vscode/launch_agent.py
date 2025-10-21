@@ -181,7 +181,7 @@ def launch_agent(
     *,
     extra_attachments: Optional[Sequence[Path]] = None,
     dry_run: bool = False,
-    keep_messages: bool = False,
+    wait: bool = False,
     workspace_root: Optional[Path] = None,
 ) -> int:
     """Launch an agent in an isolated subagent.
@@ -193,7 +193,8 @@ def launch_agent(
         extra_attachments: Additional attachment paths that should be forwarded
             to the launched chat.
         dry_run: When True, report planned actions without launching VS Code.
-        keep_messages: When True, skip cleanup of message files (req.md and res.md).
+        wait: When True, wait for response and print to stdout (sync mode).
+              When False (default), return immediately after launch (async mode).
         workspace_root: Optional workspace root whose contexts/ directory supplements agent-scoped skills.
     
     Returns:
@@ -214,8 +215,8 @@ def launch_agent(
         subagent_dir = find_unlocked_subagent(subagent_root)
         if subagent_dir is None:
             print(
-                "error: No unlocked subagents available. Please provision more subagents with:\n"
-                "  lmspace code provision --subagents <count>",
+                "error: No unlocked subagents available. Provision additional subagents with:\n"
+                "  lmspace code provision --subagents <desired_total>",
                 file=sys.stderr,
             )
             return 1
@@ -260,6 +261,7 @@ def launch_agent(
         response_file_final = messages_dir / f"{timestamp}_res.md"
         
         # Create SudoLang prompt with user query and save instructions
+        lock_file = subagent_dir / DEFAULT_LOCK_NAME
         sudolang_prompt = f"""[[ ## task ## ]]
 {user_query}
 
@@ -267,8 +269,9 @@ def launch_agent(
 
 **IMPORTANT**: Follow these exact steps:
 1. Create and write your complete response to: {response_file_tmp}
-2. When completely finished, run this PowerShell command to signal completion:
+2. When completely finished, run these PowerShell commands to signal completion:
    Move-Item -LiteralPath '{response_file_tmp}' -Destination '{response_file_final}'
+   Remove-Item -LiteralPath '{lock_file}' -Force
 
 Do not proceed to step 2 until your response is completely written to the temporary file.
 """
@@ -334,25 +337,35 @@ Do not proceed to step 2 until your response is completely written to the tempor
         if not launch_success:
             return 1
 
+        # Async mode (default): return immediately with file paths
+        if not wait:
+            print(
+                json.dumps(
+                    {
+                        "subagent": subagent_dir.name,
+                        "status": "launched",
+                        "response_file": str(response_file_final),
+                        "temp_file": str(response_file_tmp),
+                    }
+                ),
+                file=sys.stdout,
+            )
+            print(
+                f"\nAgent launched. Response will be written to:\n  {response_file_final}\n"
+                f"Monitor: check if {response_file_tmp} has been renamed to {response_file_final.name}",
+                file=sys.stderr,
+            )
+            return 0
+
+        # Sync mode (--wait): wait for response and print it
         response_received = wait_for_response_output(response_file_tmp, response_file_final)
         
-        # Clean up after response is received
+        # Remove the lock file after sync completion
         if not dry_run:
-            # Remove the lock file
             try:
                 remove_subagent_lock(subagent_dir)
             except Exception as e:
                 print(f"warning: Failed to remove subagent lock: {e}", file=sys.stderr)
-            
-            # Remove message files unless keep_messages is True
-            if not keep_messages:
-                try:
-                    req_file.unlink(missing_ok=True)
-                    response_file_final.unlink(missing_ok=True)
-                    # Also remove tmp file if it still exists
-                    response_file_tmp.unlink(missing_ok=True)
-                except Exception as e:
-                    print(f"warning: Failed to clean up message files: {e}", file=sys.stderr)
         
         if not response_received:
             return 1
@@ -456,9 +469,9 @@ def main() -> int:
         help="Print what would be done without making changes",
     )
     parser.add_argument(
-        "--keep-messages",
+        "-w", "--wait",
         action="store_true",
-        help="Keep message files (req.md and res.md) after completion",
+        help="Wait for response and print to stdout (sync mode). Default is async mode.",
     )
     args = parser.parse_args()
     return launch_agent(
@@ -466,7 +479,7 @@ def main() -> int:
         args.agent_config_path,
         extra_attachments=args.attachment,
         dry_run=args.dry_run,
-        keep_messages=args.keep_messages,
+        wait=args.wait,
     )
 
 

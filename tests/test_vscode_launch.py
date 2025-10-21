@@ -171,7 +171,7 @@ def test_handle_chat_passes_workspace_root(monkeypatch: pytest.MonkeyPatch, tmp_
         *,
         extra_attachments=None,
         dry_run: bool = False,
-        keep_messages: bool = False,
+        wait: bool = False,
         workspace_root: Path | None = None,
     ) -> int:
         captured['workspace_root'] = workspace_root
@@ -184,6 +184,7 @@ def test_handle_chat_passes_workspace_root(monkeypatch: pytest.MonkeyPatch, tmp_
         agent_config_path=tmp_path,
         attachment=None,
         dry_run=False,
+        wait=False,
         workspace_root=tmp_path / 'shared-contexts',
     )
 

@@ -1,0 +1,29 @@
+# A list of all supported evaluation targets for the project.
+# Each target defines a provider and its specific configuration.
+# Actual values for paths/keys are stored in the local .env file.
+
+# ==================================
+# AGENTIC MODELS
+# ==================================
+- name: vscode_base
+  provider: vscode
+  settings:
+    workspace_env_var: EVAL_BASE_WORKSPACE_PATH
+  judge_target: azure_base
+
+# ==================================
+# BASE MODELS
+# ==================================
+- name: azure_base
+  provider: azure
+  settings:
+    endpoint: AZURE_OPENAI_ENDPOINT
+    api_key: AZURE_OPENAI_API_KEY
+    model: AZURE_OPENAI_DEPLOYMENT_NAME
+
+- name: default
+  provider: azure
+  settings:
+    endpoint: AZURE_OPENAI_ENDPOINT
+    api_key: AZURE_OPENAI_API_KEY
+    model: AZURE_OPENAI_DEPLOYMENT_NAME

@@ -3,7 +3,7 @@
 ## Project Structure & Module Organization
 - `src/lmspace/`: CLI, agent provisioning logic, config/fetch utilities.
 - `tests/`: Pytest suites covering config parsing, fetchers, and the runner.
-- `configs/`: Sample YAML agents (duplicated URLs allowed for experiments).
+- `docs/`: Example agent workspaces, guides, and reference material.
 - `.python-version`, `pyproject.toml`, and `env.template`: runtime pinning, packaging metadata, and environment variables.
 
 ## Build, Test, and Development Commands
