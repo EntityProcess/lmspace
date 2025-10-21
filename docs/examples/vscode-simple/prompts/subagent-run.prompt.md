@@ -7,19 +7,16 @@ SubagentRunner {
   
   config {
     agentName = "${AGENT_NAME}"
-    command = "lmspace code chat"
-    pollInterval = 2s
-    maxPolls = 60
+    lmspaceCmd = `lmspace code chat "<agent_path>" "<query>" -w`
   }
   
   constraints {
-    * Always prefer #runSubagent tool when available
-    * Always locate agent path via fileSearch(`**/agents/${agentName}`)
-    * Load skills from SUBAGENT.md frontmatter using standard resolution logic
-    * Fallback to lmspace command only when runSubagent tool unavailable
-    * Preserve query semantics
-    * Analyze dependencies before execution
-    * Parallelize independent queries; sequentialize dependent ones
+    * Prefer #runSubagent; fallback to lmspace via background terminals
+    * Locate agent via fileSearch(`**/agents/${agentName}`)
+    * Load skills from SUBAGENT.md frontmatter
+    * Analyze dependencies; parallelize independent queries
+    * Use lmspace `-w` flag to wait indefinitely for response
+    * Read terminal output when process completes
   }
 }
 
@@ -31,24 +28,27 @@ function loadSkills(agentPath) {
     * Skill files follow pattern: ${skillName}.skill.md
   }
 }
-function analyzeQueryDependencies(queries); // → queries grouped by dependencies
-function launchQuery(agentPath, query); // → responsePath (lmspace command)
-function executeWithRunSubagent(agentPath, skills, query); // → response (runSubagent tool)
-function isRunSubagentAvailable(); // → bool
+function analyzeQueryDependencies(queries);
+function executeWithLmSpace(agentPath, query); // Blocking call, waits for completion
+function executeWithRunSubagent(agentPath, skills, query);
+function isRunSubagentAvailable();
 
 workflow {
   agentPath = findAgentPath(agentName)
   skills = loadSkills(agentPath)
-  
   executor = match (isRunSubagentAvailable()) {
     case true => (q) => executeWithRunSubagent(agentPath, skills, q)
-    case false => (q) => launchQuery(agentPath, q)
+    case false => (q) => executeWithLmSpace(agentPath, q)
   }
-  
+
   queryGroups = parseQueries(userInput) |> analyzeQueryDependencies
   
   for each group in queryGroups {
-    results = group |> map(executor)
-    results |> forEach(emit)
+    // Execute independent queries in parallel (background terminals)
+    // Each terminal blocks with `-w` flag until response complete
+    // Retrieve results via get_terminal_output when each completes
+    group |> map(q => executor(q) with isBackground=true) 
+          |> waitForAll()
+          |> forEach(emit)
   }
 }
