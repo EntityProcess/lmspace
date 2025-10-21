@@ -261,6 +261,7 @@ def launch_agent(
         response_file_final = messages_dir / f"{timestamp}_res.md"
         
         # Create SudoLang prompt with user query and save instructions
+        lock_file = subagent_dir / DEFAULT_LOCK_NAME
         sudolang_prompt = f"""[[ ## task ## ]]
 {user_query}
 
@@ -268,8 +269,9 @@ def launch_agent(
 
 **IMPORTANT**: Follow these exact steps:
 1. Create and write your complete response to: {response_file_tmp}
-2. When completely finished, run this PowerShell command to signal completion:
+2. When completely finished, run these PowerShell commands to signal completion:
    Move-Item -LiteralPath '{response_file_tmp}' -Destination '{response_file_final}'
+   Remove-Item -LiteralPath '{lock_file}' -Force
 
 Do not proceed to step 2 until your response is completely written to the temporary file.
 """
