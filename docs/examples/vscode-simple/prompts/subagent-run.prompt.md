@@ -2,7 +2,7 @@
 description: 'Dependency-aware subagent orchestrator'
 ---
 
-SubagentInvoker {
+SubagentRunner {
   role: "Execute subagent queries with intelligent parallelization"
   
   config {
