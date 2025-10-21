@@ -20,19 +20,20 @@ testcases:
       content: |-
         I would process these queries in parallel because they are independent:
         
-        1. Parse the two queries from the user input
-        2. Call analyzeQueryDependencies() to determine they have no dependencies
-        3. Group them into a single execution group since they're independent
-        4. Launch both queries in parallel:
-           - launchQuery(agentPath, "how is CLAUDE.md used in VS Code")
-           - launchQuery(agentPath, "what is the logic for autoapplying copilot instructions")
-        5. Poll for both responses concurrently
-        6. Return responses in original order (1, 2)
+        1. Check isRunSubagentAvailable() → returns true
+        2. Select executeWithRunSubagent as the executor
+        3. Parse the two queries from the user input
+        4. Call analyzeQueryDependencies() to determine they have no dependencies
+        5. Group them into a single execution group since they're independent
+        6. Execute both queries in parallel using runSubagent:
+           - executeWithRunSubagent(agentPath, skills, "how is CLAUDE.md used in VS Code")
+           - executeWithRunSubagent(agentPath, skills, "what is the logic for autoapplying copilot instructions")
+        7. Return responses in original order (1, 2)
         
         The total execution time would be approximately equal to the slowest query, not the sum of both, demonstrating true parallel execution.
 
-- id: fallback-to-builtin-subagent
-  outcome: Uses built-in runSubagent when custom agent (DSPy) is not available
+- id: fallback-to-lmspace-command
+  outcome: Falls back to lmspace command when runSubagent tool is not available
   messages:
     - role: user
       content:
@@ -44,19 +45,52 @@ testcases:
             1. what is DSPy.
             2. how can we use DSPy to optimize prompts used for agentic coding.
             
-            Explain how you would process these queries according to the SubagentRunner workflow when there is no DSPy agent available.
+            Explain how you would process these queries according to the SubagentRunner workflow when the runSubagent tool is not available in the environment.
     - role: assistant
       content: |-
-        I would process these queries using the built-in subagent since there's no DSPy agent available:
+        I would process these queries using the lmspace command fallback since the runSubagent tool is not available:
         
-        1. Parse the two queries from the user input
-        2. Check shouldUseCustomAgent("DSPy", queries) → returns false (agent not found)
-        3. Select executeWithRunSubagent as the executor
-        4. Call analyzeQueryDependencies() to determine they have no dependencies
-        5. Group them into a single execution group since they're independent
-        6. Execute both queries using the built-in runSubagent:
-           - executeWithRunSubagent("what is DSPy.")
-           - executeWithRunSubagent("how can we use DSPy to optimize prompts used for agentic coding.")
-        7. Return responses in original order (1, 2)
+        1. Find the agent path: findAgentPath(agentName)
+        2. Load skills: loadSkills(agentPath)
+        3. Check isRunSubagentAvailable() → returns false
+        4. Select launchQuery as the fallback executor
+        5. Parse the two queries from the user input
+        6. Call analyzeQueryDependencies() to determine Query 2 depends on Query 1
+        7. Execute sequentially due to dependency:
+           - launchQuery(agentPath, "what is DSPy.")
+           - Wait for response, then launchQuery(agentPath, "how can we use DSPy to optimize prompts used for agentic coding.")
+        8. Return responses in original order (1, 2)
         
-        The system falls back to the built-in subagent when the custom DSPy agent is not available in the workspace.
+        The system falls back to the lmspace command when the runSubagent tool is not available in the environment.
+
+- id: agent-not-available-tool-available
+  outcome: Uses runSubagent tool even when custom DSPy agent is not available in workspace
+  messages:
+    - role: user
+      content:
+        - type: file
+          value: /prompts/subagent-run.prompt.md
+        - type: text
+          value: |-
+            Given these two queries:
+            1. what is DSPy.
+            2. how can we use DSPy to optimize prompts used for agentic coding.
+            
+            Explain how you would process these queries according to the SubagentRunner workflow when there is no DSPy agent available in the workspace, but the runSubagent tool is available.
+    - role: assistant
+      content: |-
+        I would process these queries using the runSubagent tool since it's available, even though there's no custom DSPy agent:
+        
+        1. Try to find agent path: findAgentPath("DSPy") → returns null/empty (agent not found)
+        2. Load skills: loadSkills(agentPath) → returns empty or default skills
+        3. Check isRunSubagentAvailable() → returns true
+        4. Select executeWithRunSubagent as the executor
+        5. Parse the two queries from the user input
+        6. Call analyzeQueryDependencies() to determine Query 2 depends on Query 1
+        7. Execute sequentially due to dependency using runSubagent:
+           - executeWithRunSubagent(agentPath, skills, "what is DSPy.")
+           - Wait for response, then executeWithRunSubagent(agentPath, skills, "how can we use DSPy to optimize prompts used for agentic coding.")
+        8. Return responses in original order (1, 2)
+        
+        The system uses the built-in runSubagent tool capability regardless of whether a custom agent exists in the workspace.
+
