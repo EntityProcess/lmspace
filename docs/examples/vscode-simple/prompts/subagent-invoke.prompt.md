@@ -1,7 +1,6 @@
 ---
 description: 'Dependency-aware subagent orchestrator'
 mode: 'agent'
-tools: ['runCommands', 'runTasks', 'search', 'new', 'runSubagent']
 ---
 
 SubagentInvoker {
@@ -15,7 +14,7 @@ SubagentInvoker {
   }
   
   constraints {
-    * When uncertain about agent relevance, prefer built-in runSubagent
+    * When uncertain about agent relevance, prefer built-in #runSubagent
     * Assess query-agent domain alignment before using custom agents
     * Locate agent via fileSearch(`**/agents/${agentName}`)
     * Preserve query semantics
