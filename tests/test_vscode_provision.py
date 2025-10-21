@@ -98,7 +98,7 @@ def test_provision_skip_existing(template_dir: Path, target_root: Path) -> None:
 
 
 def test_provision_skip_locked(template_dir: Path, target_root: Path) -> None:
-    """Test that locked subagents are always skipped."""
+    """Test that locked subagents are skipped and additional ones are created."""
     # Create initial subagent
     provision_subagents(
         template=template_dir,
@@ -113,7 +113,7 @@ def test_provision_skip_locked(template_dir: Path, target_root: Path) -> None:
     lock_file = target_root / "subagent-1" / DEFAULT_LOCK_NAME
     lock_file.touch()
 
-    # Try to provision with force
+    # Request 1 unlocked subagent - should create subagent-2 since subagent-1 is locked
     created, skipped_existing, skipped_locked = provision_subagents(
         template=template_dir,
         target_root=target_root,
@@ -123,9 +123,14 @@ def test_provision_skip_locked(template_dir: Path, target_root: Path) -> None:
         dry_run=False,
     )
 
-    assert len(created) == 0
+    assert len(created) == 1
     assert len(skipped_existing) == 0
     assert len(skipped_locked) == 1
+    
+    # Should have created subagent-2
+    assert (target_root / "subagent-2").exists()
+    # subagent-1 should still be locked
+    assert lock_file.exists()
 
 
 def test_provision_force_unlocked(template_dir: Path, target_root: Path) -> None:
@@ -206,6 +211,80 @@ def test_provision_zero_subagents(template_dir: Path, target_root: Path) -> None
             force=False,
             dry_run=False,
         )
+
+
+def test_provision_additional_when_locked(template_dir: Path, target_root: Path) -> None:
+    """Test that new subagents are provisioned when existing ones are locked."""
+    # Create 2 initial subagents
+    provision_subagents(
+        template=template_dir,
+        target_root=target_root,
+        subagents=2,
+        lock_name=DEFAULT_LOCK_NAME,
+        force=False,
+        dry_run=False,
+    )
+
+    # Lock both subagents
+    (target_root / "subagent-1" / DEFAULT_LOCK_NAME).touch()
+    (target_root / "subagent-2" / DEFAULT_LOCK_NAME).touch()
+
+    # Request 2 unlocked subagents - should create subagent-3 and subagent-4
+    created, skipped_existing, skipped_locked = provision_subagents(
+        template=template_dir,
+        target_root=target_root,
+        subagents=2,
+        lock_name=DEFAULT_LOCK_NAME,
+        force=False,
+        dry_run=False,
+    )
+
+    assert len(created) == 2
+    assert len(skipped_existing) == 0
+    assert len(skipped_locked) == 2
+
+    # Should have created subagent-3 and subagent-4
+    assert (target_root / "subagent-3").exists()
+    assert (target_root / "subagent-4").exists()
+    
+    # Original locked subagents should still exist
+    assert (target_root / "subagent-1").exists()
+    assert (target_root / "subagent-2").exists()
+
+
+def test_provision_partial_locked(template_dir: Path, target_root: Path) -> None:
+    """Test provisioning when some subagents are locked and some are unlocked."""
+    # Create 3 initial subagents
+    provision_subagents(
+        template=template_dir,
+        target_root=target_root,
+        subagents=3,
+        lock_name=DEFAULT_LOCK_NAME,
+        force=False,
+        dry_run=False,
+    )
+
+    # Lock subagent-1 and subagent-3, leave subagent-2 unlocked
+    (target_root / "subagent-1" / DEFAULT_LOCK_NAME).touch()
+    (target_root / "subagent-3" / DEFAULT_LOCK_NAME).touch()
+
+    # Request 2 unlocked subagents - already have 1 unlocked (subagent-2),
+    # so should create 1 additional (subagent-4)
+    created, skipped_existing, skipped_locked = provision_subagents(
+        template=template_dir,
+        target_root=target_root,
+        subagents=2,
+        lock_name=DEFAULT_LOCK_NAME,
+        force=False,
+        dry_run=False,
+    )
+
+    assert len(created) == 1
+    assert len(skipped_existing) == 1  # subagent-2
+    assert len(skipped_locked) == 2  # subagent-1 and subagent-3
+
+    # Should have created subagent-4
+    assert (target_root / "subagent-4").exists()
 
 
 def test_handle_provision_runs_warmup(

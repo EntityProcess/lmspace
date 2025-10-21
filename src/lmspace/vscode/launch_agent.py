@@ -215,8 +215,8 @@ def launch_agent(
         subagent_dir = find_unlocked_subagent(subagent_root)
         if subagent_dir is None:
             print(
-                "error: No unlocked subagents available. Please provision more subagents with:\n"
-                "  lmspace code provision --subagents <count>",
+                "error: No unlocked subagents available. Provision additional subagents with:\n"
+                "  lmspace code provision --subagents <desired_total>",
                 file=sys.stderr,
             )
             return 1

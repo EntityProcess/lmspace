@@ -220,13 +220,16 @@ def handle_provision(args: argparse.Namespace) -> int:
         print(f"error: {error}", file=sys.stderr)
         return 1
 
+    # Calculate total unlocked subagents
+    total_unlocked = len(created) + len(skipped_existing)
+
     if created:
         print("created subagents:")
         for path in created:
             print(f"  {path}")
 
     if skipped_existing:
-        print("skipped existing subagents:")
+        print("skipped existing unlocked subagents:")
         for path in skipped_existing:
             print(f"  {path}")
 
@@ -237,6 +240,9 @@ def handle_provision(args: argparse.Namespace) -> int:
 
     if not any([created, skipped_existing, skipped_locked]):
         print("no operations were required")
+    
+    if total_unlocked > 0:
+        print(f"\ntotal unlocked subagents available: {total_unlocked}")
 
     if args.dry_run:
         print("dry run complete; no changes were made")
