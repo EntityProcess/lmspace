@@ -15,6 +15,7 @@ SubagentInvoker {
   constraints {
     * Always prefer #runSubagent tool when available
     * Always locate agent path via fileSearch(`**/agents/${agentName}`)
+    * Load skills from SUBAGENT.md frontmatter using standard resolution logic
     * Fallback to lmspace command only when runSubagent tool unavailable
     * Preserve query semantics
     * Analyze dependencies before execution
@@ -23,26 +24,31 @@ SubagentInvoker {
 }
 
 function findAgentPath(agentName);
+function loadSkills(agentPath) {
+  constraints {
+    * Resolve skills from SUBAGENT.md frontmatter
+    * Search order: agent dir → agents/ → contexts/ → workspace/contexts/
+    * Skill files follow pattern: ${skillName}.skill.md
+  }
+}
 function analyzeQueryDependencies(queries); // → queries grouped by dependencies
-function pollQueries(responsePaths); // → responses when all exist or timeout
-function launchQuery(agentPath, query); // → responsePath
-function executeWithRunSubagent(query); // → response
-function isRunSubagentAvailable(); // → bool (checks if runSubagent tool exists)
+function launchQuery(agentPath, query); // → responsePath (lmspace command)
+function executeWithRunSubagent(agentPath, skills, query); // → response (runSubagent tool)
+function isRunSubagentAvailable(); // → bool
 
 workflow {
-  queries = parseQueries(userInput)
   agentPath = findAgentPath(agentName)
+  skills = loadSkills(agentPath)
   
   executor = match (isRunSubagentAvailable()) {
-    case true => executeWithRunSubagent
+    case true => (q) => executeWithRunSubagent(agentPath, skills, q)
     case false => (q) => launchQuery(agentPath, q)
   }
   
-  queryGroups = analyzeQueryDependencies(queries)
+  queryGroups = parseQueries(userInput) |> analyzeQueryDependencies
   
   for each group in queryGroups {
     results = group |> map(executor)
-    responses = pollQueries(results)
-    responses |> forEach(emit)
+    results |> forEach(emit)
   }
 }
