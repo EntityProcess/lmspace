@@ -36,7 +36,7 @@ def test_provision_single_subagent(template_dir: Path, target_root: Path) -> Non
         target_root=target_root,
         subagents=1,
         lock_name=DEFAULT_LOCK_NAME,
-        refresh=False,
+        force=False,
         dry_run=False,
     )
 
@@ -57,7 +57,7 @@ def test_provision_multiple_subagents(template_dir: Path, target_root: Path) -> 
         target_root=target_root,
         subagents=3,
         lock_name=DEFAULT_LOCK_NAME,
-        refresh=False,
+        force=False,
         dry_run=False,
     )
 
@@ -71,24 +71,24 @@ def test_provision_multiple_subagents(template_dir: Path, target_root: Path) -> 
 
 
 def test_provision_skip_existing(template_dir: Path, target_root: Path) -> None:
-    """Test that existing unlocked subagents are skipped without --refresh."""
+    """Test that existing unlocked subagents are skipped without --force."""
     # Create initial subagent
     provision_subagents(
         template=template_dir,
         target_root=target_root,
         subagents=1,
         lock_name=DEFAULT_LOCK_NAME,
-        refresh=False,
+        force=False,
         dry_run=False,
     )
 
-    # Provision again without refresh
+    # Provision again without force
     created, skipped_existing, skipped_locked = provision_subagents(
         template=template_dir,
         target_root=target_root,
         subagents=1,
         lock_name=DEFAULT_LOCK_NAME,
-        refresh=False,
+        force=False,
         dry_run=False,
     )
 
@@ -105,7 +105,7 @@ def test_provision_skip_locked(template_dir: Path, target_root: Path) -> None:
         target_root=target_root,
         subagents=1,
         lock_name=DEFAULT_LOCK_NAME,
-        refresh=False,
+        force=False,
         dry_run=False,
     )
 
@@ -113,13 +113,13 @@ def test_provision_skip_locked(template_dir: Path, target_root: Path) -> None:
     lock_file = target_root / "subagent-1" / DEFAULT_LOCK_NAME
     lock_file.touch()
 
-    # Try to provision with refresh
+    # Try to provision with force
     created, skipped_existing, skipped_locked = provision_subagents(
         template=template_dir,
         target_root=target_root,
         subagents=1,
         lock_name=DEFAULT_LOCK_NAME,
-        refresh=True,
+        force=True,
         dry_run=False,
     )
 
@@ -128,15 +128,15 @@ def test_provision_skip_locked(template_dir: Path, target_root: Path) -> None:
     assert len(skipped_locked) == 1
 
 
-def test_provision_refresh_unlocked(template_dir: Path, target_root: Path) -> None:
-    """Test that unlocked subagents are rebuilt with --refresh."""
+def test_provision_force_unlocked(template_dir: Path, target_root: Path) -> None:
+    """Test that unlocked subagents are rebuilt with --force."""
     # Create initial subagent
     provision_subagents(
         template=template_dir,
         target_root=target_root,
         subagents=1,
         lock_name=DEFAULT_LOCK_NAME,
-        refresh=False,
+        force=False,
         dry_run=False,
     )
 
@@ -144,13 +144,13 @@ def test_provision_refresh_unlocked(template_dir: Path, target_root: Path) -> No
     marker = target_root / "subagent-1" / "marker.txt"
     marker.write_text("should be deleted")
 
-    # Provision with refresh
+    # Provision with force
     created, skipped_existing, skipped_locked = provision_subagents(
         template=template_dir,
         target_root=target_root,
         subagents=1,
         lock_name=DEFAULT_LOCK_NAME,
-        refresh=True,
+        force=True,
         dry_run=False,
     )
 
@@ -169,7 +169,7 @@ def test_provision_dry_run(template_dir: Path, target_root: Path) -> None:
         target_root=target_root,
         subagents=2,
         lock_name=DEFAULT_LOCK_NAME,
-        refresh=False,
+        force=False,
         dry_run=True,
     )
 
@@ -190,7 +190,7 @@ def test_provision_invalid_template(target_root: Path) -> None:
             target_root=target_root,
             subagents=1,
             lock_name=DEFAULT_LOCK_NAME,
-            refresh=False,
+            force=False,
             dry_run=False,
         )
 
@@ -203,7 +203,7 @@ def test_provision_zero_subagents(template_dir: Path, target_root: Path) -> None
             target_root=target_root,
             subagents=0,
             lock_name=DEFAULT_LOCK_NAME,
-            refresh=False,
+            force=False,
             dry_run=False,
         )
 
@@ -221,7 +221,7 @@ def test_handle_provision_runs_warmup(
         target_root=target_root,
         subagents=1,
         lock_name=DEFAULT_LOCK_NAME,
-        refresh=False,
+        force=False,
         dry_run=False,
         warmup=True,
     )
@@ -259,7 +259,7 @@ def test_handle_provision_skips_warmup_during_dry_run(
         target_root=target_root,
         subagents=1,
         lock_name=DEFAULT_LOCK_NAME,
-        refresh=False,
+        force=False,
         dry_run=True,
         warmup=True,
     )

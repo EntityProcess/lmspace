@@ -60,9 +60,9 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
-        "--refresh",
+        "--force",
         action="store_true",
-        help="Rebuild unlocked subagents even if they already exist.",
+        help="Overwrite unlocked subagent directories even if they already exist.",
     )
     parser.add_argument(
         "--dry-run",
@@ -86,7 +86,7 @@ def provision_subagents(
     target_root: Path,
     subagents: int,
     lock_name: str,
-    refresh: bool,
+    force: bool,
     dry_run: bool,
 ) -> Tuple[List[Path], List[Path], List[Path]]:
     """Provision subagent directories and return summary lists.
@@ -118,7 +118,7 @@ def provision_subagents(
             if lock_file.exists():
                 skipped_locked.append(subagent_dir)
                 continue
-            if refresh:
+            if force:
                 if dry_run:
                     skipped_existing.append(subagent_dir)
                 else:
@@ -219,7 +219,7 @@ def main() -> int:
             target_root=args.target_root,
             subagents=args.subagents,
             lock_name=args.lock_name,
-            refresh=args.refresh,
+            force=args.force,
             dry_run=args.dry_run,
         )
     except ValueError as error:
