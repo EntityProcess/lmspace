@@ -1,0 +1,32 @@
+description: Evaluation for subagent-invoke prompt
+grader: llm_judge
+
+testcases:
+- id: parallel-independent-queries
+  outcome: Correctly explains how to process two independent queries in parallel according to the SubagentInvoker workflow
+  messages:
+    - role: user
+      content:
+        - type: file
+          value: /prompts/subagent-invoke.prompt.md
+        - type: text
+          value: |-
+            Given these two queries:
+            1. how is CLAUDE.md used in VS Code.
+            2. what is the logic for autoapplying copilot instructions
+            
+            Explain how you would process these queries according to the SubagentInvoker workflow.
+    - role: assistant
+      content: |-
+        I would process these queries in parallel because they are independent:
+        
+        1. Parse the two queries from the user input
+        2. Call analyzeQueryDependencies() to determine they have no dependencies
+        3. Group them into a single execution group since they're independent
+        4. Launch both queries in parallel:
+           - launchQuery(agentPath, "how is CLAUDE.md used in VS Code")
+           - launchQuery(agentPath, "what is the logic for autoapplying copilot instructions")
+        5. Poll for both responses concurrently
+        6. Return responses in original order (1, 2)
+        
+        The total execution time would be approximately equal to the slowest query, not the sum of both, demonstrating true parallel execution.
