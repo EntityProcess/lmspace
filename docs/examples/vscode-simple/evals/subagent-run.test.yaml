@@ -94,3 +94,38 @@ testcases:
         
         The system uses the built-in runSubagent tool capability regardless of whether a custom agent exists in the workspace.
 
+- id: skills-loaded-from-subagent
+  outcome: Correctly loads skills from SUBAGENT.md frontmatter and makes them available to the subagent
+  messages:
+    - role: user
+      content:
+        - type: file
+          value: /prompts/subagent-run.prompt.md
+        - type: text
+          value: |-
+            Given a query that requires the research skill:
+            "Research how VS Code extensions are structured"
+            
+            Explain how you would load and pass the skills to the subagent according to the SubagentRunner workflow.
+    - role: assistant
+      content: |-
+        I would load and pass skills to the subagent following this workflow:
+        
+        1. Find the agent path: findAgentPath(agentName) → returns agent directory path
+        2. Load skills: loadSkills(agentPath)
+           - Read SUBAGENT.md frontmatter for skill definitions
+           - Search order: agent dir → agents/ → contexts/ → workspace/contexts/
+           - Look for files matching pattern: ${skillName}.skill.md
+           - For example, if frontmatter specifies "research", load "research.skill.md"
+        3. Check isRunSubagentAvailable() → returns true
+        4. Select executeWithRunSubagent as the executor
+        5. Parse the query: "Research how VS Code extensions are structured"
+        6. Execute with skills passed to runSubagent:
+           - executeWithRunSubagent(agentPath, skills, "Research how VS Code extensions are structured")
+           - The skills array includes the loaded research skill from research.skill.md
+           - The subagent can now use the research skill's constraints and workflow
+        7. Return the response
+        
+        The key is that loadSkills() resolves skill files from the SUBAGENT.md frontmatter and the skills are passed as a parameter to executeWithRunSubagent, making them available in the subagent's context.
+
+
