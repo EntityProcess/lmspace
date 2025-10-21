@@ -30,3 +30,33 @@ testcases:
         6. Return responses in original order (1, 2)
         
         The total execution time would be approximately equal to the slowest query, not the sum of both, demonstrating true parallel execution.
+
+- id: fallback-to-builtin-subagent
+  outcome: Uses built-in runSubagent when custom agent (DSPy) is not available
+  messages:
+    - role: user
+      content:
+        - type: file
+          value: /prompts/subagent-invoke.prompt.md
+        - type: text
+          value: |-
+            Given these two queries:
+            1. what is DSPy.
+            2. how can we use DSPy to optimize prompts used for agentic coding.
+            
+            Explain how you would process these queries according to the SubagentInvoker workflow when there is no DSPy agent available.
+    - role: assistant
+      content: |-
+        I would process these queries using the built-in subagent since there's no DSPy agent available:
+        
+        1. Parse the two queries from the user input
+        2. Check shouldUseCustomAgent("DSPy", queries) → returns false (agent not found)
+        3. Select executeWithRunSubagent as the executor
+        4. Call analyzeQueryDependencies() to determine they have no dependencies
+        5. Group them into a single execution group since they're independent
+        6. Execute both queries using the built-in runSubagent:
+           - executeWithRunSubagent("what is DSPy.")
+           - executeWithRunSubagent("how can we use DSPy to optimize prompts used for agentic coding.")
+        7. Return responses in original order (1, 2)
+        
+        The system falls back to the built-in subagent when the custom DSPy agent is not available in the workspace.
