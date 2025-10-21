@@ -1,6 +1,5 @@
 ---
 description: 'Dependency-aware subagent orchestrator'
-mode: 'agent'
 ---
 
 SubagentInvoker {
@@ -14,9 +13,9 @@ SubagentInvoker {
   }
   
   constraints {
-    * When uncertain about agent relevance, prefer built-in #runSubagent
-    * Assess query-agent domain alignment before using custom agents
-    * Locate agent via fileSearch(`**/agents/${agentName}`)
+    * Always prefer #runSubagent tool when available
+    * Always locate agent path via fileSearch(`**/agents/${agentName}`)
+    * Fallback to lmspace command only when runSubagent tool unavailable
     * Preserve query semantics
     * Analyze dependencies before execution
     * Parallelize independent queries; sequentialize dependent ones
@@ -28,14 +27,15 @@ function analyzeQueryDependencies(queries); // → queries grouped by dependenci
 function pollQueries(responsePaths); // → responses when all exist or timeout
 function launchQuery(agentPath, query); // → responsePath
 function executeWithRunSubagent(query); // → response
-function shouldUseCustomAgent(agentName, queries); // → bool (checks availability, relevance, domain alignment)
+function isRunSubagentAvailable(); // → bool (checks if runSubagent tool exists)
 
 workflow {
   queries = parseQueries(userInput)
+  agentPath = findAgentPath(agentName)
   
-  executor = match (shouldUseCustomAgent(agentName, queries)) {
-    case false => executeWithRunSubagent
-    case true => (q) => launchQuery(findAgentPath(agentName), q)
+  executor = match (isRunSubagentAvailable()) {
+    case true => executeWithRunSubagent
+    case false => (q) => launchQuery(agentPath, q)
   }
   
   queryGroups = analyzeQueryDependencies(queries)
