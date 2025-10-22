@@ -11,7 +11,7 @@ SubagentRunner {
   }
   
   constraints {
-    * Prefer #runSubagent; fallback to lmspace via background terminals
+    * Prefer #runSubagent ; fallback to lmspace via background terminals
     * Locate agent via fileSearch(`**/agents/${agentName}`)
     * Load skills from SUBAGENT.md frontmatter
     * Analyze dependencies; parallelize independent queries

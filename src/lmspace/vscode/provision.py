@@ -149,7 +149,13 @@ def provision_subagents(
                 if dry_run:
                     skipped_existing.append(subagent_dir)
                 else:
-                    shutil.rmtree(subagent_dir)
+                    try:
+                        shutil.rmtree(subagent_dir)
+                    except PermissionError:
+                        raise ValueError(
+                            f"Cannot overwrite {subagent_dir.name} - it appears to be in use. "
+                            "Please close any VS Code windows using this workspace and try again."
+                        )
                     # Recreate it
                     shutil.copytree(
                         template_path,

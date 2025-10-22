@@ -351,3 +351,43 @@ def test_handle_provision_skips_warmup_during_dry_run(
     result = handle_provision(args)
 
     assert result == 0
+
+
+def test_provision_force_permission_error(
+    template_dir: Path,
+    target_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that PermissionError during force overwrite gives a friendly message."""
+    import shutil as shutil_module
+
+    # Create initial subagent
+    provision_subagents(
+        template=template_dir,
+        target_root=target_root,
+        subagents=1,
+        lock_name=DEFAULT_LOCK_NAME,
+        force=False,
+        dry_run=False,
+    )
+
+    # Mock shutil.rmtree to raise PermissionError
+    original_rmtree = shutil_module.rmtree
+
+    def mock_rmtree(path: str | Path, *args, **kwargs) -> None:
+        if "subagent-1" in str(path):
+            raise PermissionError("[WinError 32] The process cannot access the file")
+        original_rmtree(path, *args, **kwargs)
+
+    monkeypatch.setattr("shutil.rmtree", mock_rmtree)
+
+    # Try to provision with force - should get friendly error
+    with pytest.raises(ValueError, match="Cannot overwrite subagent-1.*in use"):
+        provision_subagents(
+            template=template_dir,
+            target_root=target_root,
+            subagents=1,
+            lock_name=DEFAULT_LOCK_NAME,
+            force=True,
+            dry_run=False,
+        )
