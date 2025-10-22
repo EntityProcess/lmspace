@@ -1,6 +1,6 @@
 [project]
 name = "lmspace"
-version = "0.1.5"
+version = "0.1.6"
 description = "Runner that provisions subagents from configs"
 readme = "README.md"
 license = {text = "MIT"}

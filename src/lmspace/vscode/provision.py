@@ -111,10 +111,18 @@ def provision_subagents(
         target_path.mkdir(parents=True, exist_ok=True)
 
     # First, scan existing subagents to count unlocked ones and find the highest number
-    existing_subagents = sorted(
-        (d for d in target_path.iterdir() if d.is_dir() and d.name.startswith("subagent-")),
-        key=lambda d: int(d.name.split("-")[1])
-    ) if target_path.exists() else []
+    # Filter out directories that don't have a valid integer after "subagent-"
+    existing_subagents = []
+    if target_path.exists():
+        for d in target_path.iterdir():
+            if d.is_dir() and d.name.startswith("subagent-"):
+                try:
+                    int(d.name.split("-")[1])
+                    existing_subagents.append(d)
+                except (ValueError, IndexError):
+                    # Skip directories that don't follow the subagent-N pattern
+                    continue
+        existing_subagents.sort(key=lambda d: int(d.name.split("-")[1]))
 
     unlocked_count = 0
     highest_number = 0
@@ -151,16 +159,12 @@ def provision_subagents(
                 if dry_run:
                     skipped_existing.append(subagent_dir)
                 else:
-                    try:
-                        shutil.rmtree(subagent_dir)
-                    except PermissionError:
-                        raise ValueError(
-                            f"Cannot overwrite {subagent_dir.name} - it appears to be in use. "
-                            "Please close any VS Code windows using this workspace and try again."
-                        )
+                    # Overwrite files directly without deleting the directory
+                    # This works even if the directory is in use by VS Code
                     shutil.copytree(
                         template_path,
                         subagent_dir,
+                        dirs_exist_ok=True,
                         ignore=shutil.ignore_patterns(
                             "__pycache__",
                             "*.pyc",

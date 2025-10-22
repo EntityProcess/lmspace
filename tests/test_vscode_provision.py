@@ -130,8 +130,11 @@ def test_provision_skip_locked(template_dir: Path, target_root: Path) -> None:
     # Both should exist
     assert (target_root / "subagent-1").exists()
     assert (target_root / "subagent-2").exists()
-    # subagent-1 lock should be removed (overwritten with fresh template)
-    assert not lock_file.exists()
+    # Template files should exist
+    assert (target_root / "subagent-1" / "subagent.chatmode.md").exists()
+    assert (target_root / "subagent-1" / "subagent.code-workspace").exists()
+    # Lock file still exists (we don't delete files, just overwrite template files)
+    assert lock_file.exists()
 
 
 def test_provision_force_unlocked(template_dir: Path, target_root: Path) -> None:
@@ -164,8 +167,11 @@ def test_provision_force_unlocked(template_dir: Path, target_root: Path) -> None
     assert len(skipped_existing) == 0
     assert len(skipped_locked) == 0
 
-    # Marker should be gone
-    assert not marker.exists()
+    # Marker file remains (we don't delete files, just overwrite template files)
+    assert marker.exists()
+    # Template files should exist
+    assert (target_root / "subagent-1" / "subagent.chatmode.md").exists()
+    assert (target_root / "subagent-1" / "subagent.code-workspace").exists()
 
 
 def test_provision_dry_run(template_dir: Path, target_root: Path) -> None:
@@ -354,41 +360,33 @@ def test_handle_provision_skips_warmup_during_dry_run(
     assert result == 0
 
 
-def test_provision_force_permission_error(
+def test_provision_force_dir_in_use(
     template_dir: Path,
     target_root: Path,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Test that PermissionError during force overwrite gives a friendly message."""
-    import shutil as shutil_module
+    """Test that directory in use can still be provisioned with force."""
+    # Create an empty subagent directory (simulating a folder that's in use but empty)
+    subagent_dir = target_root / "subagent-1"
+    subagent_dir.mkdir(parents=True)
+    
+    # Add an extra file that should remain after provisioning
+    extra_file = subagent_dir / "extra-file.txt"
+    extra_file.write_text("content")
 
-    # Create initial subagent
-    provision_subagents(
+    # Provision with force - should succeed by copying template files
+    created, skipped_existing, skipped_locked = provision_subagents(
         template=template_dir,
         target_root=target_root,
         subagents=1,
         lock_name=DEFAULT_LOCK_NAME,
-        force=False,
+        force=True,
         dry_run=False,
     )
 
-    # Mock shutil.rmtree to raise PermissionError
-    original_rmtree = shutil_module.rmtree
-
-    def mock_rmtree(path: str | Path, *args, **kwargs) -> None:
-        if "subagent-1" in str(path):
-            raise PermissionError("[WinError 32] The process cannot access the file")
-        original_rmtree(path, *args, **kwargs)
-
-    monkeypatch.setattr("shutil.rmtree", mock_rmtree)
-
-    # Try to provision with force - should get friendly error
-    with pytest.raises(ValueError, match="Cannot overwrite subagent-1.*in use"):
-        provision_subagents(
-            template=template_dir,
-            target_root=target_root,
-            subagents=1,
-            lock_name=DEFAULT_LOCK_NAME,
-            force=True,
-            dry_run=False,
-        )
+    # Should have successfully provisioned the subagent
+    assert len(created) == 1
+    assert created[0] == subagent_dir
+    assert (subagent_dir / "subagent.chatmode.md").exists()
+    assert (subagent_dir / "subagent.code-workspace").exists()
+    # Extra file should still exist (we don't delete, just overwrite template files)
+    assert extra_file.exists()
