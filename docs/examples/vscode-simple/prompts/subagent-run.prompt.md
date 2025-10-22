@@ -10,7 +10,8 @@ Execute subagent queries with intelligent parallelization.
 
 ```
 agentName = "${AGENT_NAME}"
-waitInterval = 30  // seconds
+initialWaitInterval = 30  // seconds (first wait)
+subsequentWaitInterval = 15  // seconds (subsequent waits)
 ```
 
 ## Constraints
@@ -63,9 +64,10 @@ Choose execution strategy based on tool availability.
 
 2. **Wait** - After dispatching ALL queries in group, run synchronous barrier:
    ```
-   Start-Sleep -Seconds {waitInterval}
+   Start-Sleep -Seconds {isFirstWait ? initialWaitInterval : subsequentWaitInterval}
    ```
    * isBackground=false (blocks until complete)
+   * Use initialWaitInterval for first wait, subsequentWaitInterval after
    * DO NOT poll terminals repeatedly
 
 3. **Read** - Use terminal command to read result files:
@@ -95,6 +97,7 @@ if (#runSubagent available) {
 queryGroups = parseQueries(userInput) |> analyzeQueryDependencies
 
 // 4. Execute each group
+isFirstWait = true
 for each group in queryGroups {
   
   // Dispatch all queries in parallel
@@ -109,7 +112,9 @@ for each group in queryGroups {
   
   // Wait for completion (only for lmspaceCLI strategy)
   if (strategy == "lmspaceCLI") {
-    run(`Start-Sleep -Seconds ${waitInterval}`, isBackground=false)
+    currentWait = isFirstWait ? initialWaitInterval : subsequentWaitInterval
+    run(`Start-Sleep -Seconds ${currentWait}`, isBackground=false)
+    isFirstWait = false
   }
   
   // Read and emit results
