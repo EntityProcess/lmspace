@@ -335,7 +335,7 @@ Do not proceed to step 2 until your response is completely written to the tempor
                 chat_cmd += f' -a "{req_file}"'
                 
                 # Add a simple prompt that references the req.md file
-                chat_cmd += f' "Follow the instructions in {req_file.name}"'
+                chat_cmd += f' "Follow instructions in {req_file.name}"'
                 
                 subprocess.Popen(chat_cmd, shell=True)
                     
