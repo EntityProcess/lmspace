@@ -116,8 +116,17 @@ def copy_agent_config(
 def create_subagent_lock(subagent_dir: Path) -> Path:
     """Create a lock file to mark the subagent as in-use.
     
+    Also clears any existing messages from previous runs.
+    
     Returns the path to the created lock file.
     """
+    # Clear existing messages
+    messages_dir = subagent_dir / "messages"
+    if messages_dir.exists():
+        for msg_file in messages_dir.iterdir():
+            if msg_file.is_file():
+                msg_file.unlink()
+    
     lock_file = subagent_dir / DEFAULT_LOCK_NAME
     lock_file.touch()
     return lock_file
