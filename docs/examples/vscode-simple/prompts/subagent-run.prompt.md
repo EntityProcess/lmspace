@@ -12,10 +12,16 @@ SubagentRunner {
   }
   
   constraints {
-    * Prefer #runSubagent ; fallback to lmspace via background terminals
+    * Prefer #runSubagent ; fallback to lmspace with -w flag
     * Locate agent via fileSearch(`**/agents/${agentName}`)
     * Parallelize independent queries after dependency analysis
-    * When using lmspace: `-w` waits indefinitely; run in background terminal
+    * When using lmspace: 
+      - Use -w flag for synchronous execution (waits until response ready - queries can take 2+ minutes)
+      - Run queries in parallel using background terminals (isBackground=true)
+      - Background terminals with -w flag will block until completion; wait for them to finish
+      - Queries may take 1-3 minutes to complete;
+      - Response will be printed to terminal output when ready; read from console output
+      - DO NOT poll or manually read response files; terminal output contains the result
     * When using runSubagent:
       - Resolve skill paths via skillsCmd (returns JSON array)
       - Read SUBAGENT.md from agent directory
@@ -29,7 +35,7 @@ function findAgentPath(agentName);
 function readSubagentMd(agentPath);  // Read SUBAGENT.md from agent directory
 function resolveSkillPaths(agentPath);  // Execute: lmspace code skills <agentPath>
 function analyzeQueryDependencies(queries);
-function executeWithLmSpace(agentPath, query);  // Handles skill resolution internally
+function executeWithLmSpace(agentPath, query);
 function executeWithRunSubagent(subagentMd, skillPaths, query);  // Pass SUBAGENT.md content + skill paths
 function isRunSubagentAvailable();
 
@@ -47,8 +53,8 @@ workflow {
   queryGroups = parseQueries(userInput) |> analyzeQueryDependencies
   
   for each group in queryGroups {
-    group |> map(q => executor(q) with isBackground=true) 
-          |> waitForAll()
-          |> forEach(emit)
+    // Execute queries in parallel using background terminals
+    results = group |> map(q => run_in_terminal(executor(q), isBackground=true))
+    results |> forEach(emit)
   }
 }
