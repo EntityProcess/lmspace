@@ -142,15 +142,22 @@ def provision_subagents(
         lock_file = subagent_dir / lock_name
 
         if subagent_dir.exists():
-            if lock_file.exists():
-                # Already in skipped_locked list
+            # Skip locked subagents unless force is enabled
+            if lock_file.exists() and not force:
                 continue
+            
+            # Overwrite if force is enabled, otherwise skip
             if force:
                 if dry_run:
                     skipped_existing.append(subagent_dir)
                 else:
-                    shutil.rmtree(subagent_dir)
-                    # Recreate it
+                    try:
+                        shutil.rmtree(subagent_dir)
+                    except PermissionError:
+                        raise ValueError(
+                            f"Cannot overwrite {subagent_dir.name} - it appears to be in use. "
+                            "Please close any VS Code windows using this workspace and try again."
+                        )
                     shutil.copytree(
                         template_path,
                         subagent_dir,
@@ -164,7 +171,6 @@ def provision_subagents(
                     created.append(subagent_dir)
             else:
                 skipped_existing.append(subagent_dir)
-                continue
         else:
             # Subagent doesn't exist, create it
             if dry_run:

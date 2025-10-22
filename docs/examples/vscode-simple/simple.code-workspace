@@ -6,7 +6,8 @@
 	],
 	"settings": {
 		"chat.promptFilesLocations": {
-			"**/*.prompt.md": true
+			"**/*.prompt.md": true,
+			"../../../.github/**/*.prompt.md": true
 		}
 	}
 }
