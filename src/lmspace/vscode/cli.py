@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 from typing import Any
@@ -365,5 +366,89 @@ def handle_transpile(args: argparse.Namespace) -> int:
 
     print(f"generated chatmode: {output_path}")
     return 0
+
+
+def add_skills_parser(subparsers: Any) -> None:
+    """Add the 'skills' subcommand parser."""
+    parser = subparsers.add_parser(
+        "skills",
+        help="Resolve skill file paths for an agent",
+        description=(
+            "Read SUBAGENT.md frontmatter and resolve skill file paths. "
+            "Returns JSON array of absolute paths."
+        ),
+    )
+    parser.add_argument(
+        "agent_config_path",
+        type=Path,
+        help="Path to the agent configuration directory containing SUBAGENT.md",
+    )
+    parser.add_argument(
+        "--workspace-root",
+        type=Path,
+        default=None,
+        help=(
+            "Optional workspace root whose contexts/ directory is searched "
+            "for skill files."
+        ),
+    )
+
+
+def handle_skills(args: argparse.Namespace) -> int:
+    """Handle the 'skills' subcommand."""
+    from .transpiler import (
+        _load_subagent_definition,
+        _resolve_skill_body,
+        SKILL_SUFFIX,
+    )
+    
+    try:
+        agent_dir = args.agent_config_path.resolve()
+        _, _, skills, _ = _load_subagent_definition(agent_dir)
+        
+        skill_paths = []
+        for skill in skills:
+            # Use the same resolution logic as transpiler
+            skill_filename = f"{skill}{SKILL_SUFFIX}"
+            
+            # Search order matches _resolve_skill_body
+            locations_to_check = [
+                agent_dir / skill_filename,
+            ]
+            
+            if agent_dir.parent.name == "agents":
+                agents_folder = agent_dir.parent
+                locations_to_check.append(agents_folder / skill_filename)
+                workspace_contexts = agents_folder.parent / "contexts" / skill_filename
+                locations_to_check.append(workspace_contexts)
+            
+            if args.workspace_root is not None:
+                workspace_skill = args.workspace_root / "contexts" / skill_filename
+                if workspace_skill not in locations_to_check:
+                    locations_to_check.append(workspace_skill)
+            
+            # Find first existing path
+            found = None
+            for path in locations_to_check:
+                if path.exists():
+                    found = str(path.resolve())
+                    break
+            
+            if found:
+                skill_paths.append(found)
+            else:
+                print(
+                    f"error: skill '{skill}' not found",
+                    file=sys.stderr,
+                )
+                return 1
+        
+        # Output JSON array
+        print(json.dumps(skill_paths))
+        return 0
+        
+    except (FileNotFoundError, SubagentDefinitionError) as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 1
 
 
