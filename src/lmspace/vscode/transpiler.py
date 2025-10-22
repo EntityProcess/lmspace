@@ -105,21 +105,21 @@ def _load_subagent_definition(agent_dir: Path) -> tuple[dict[str, Any], str, lis
     return data, body, skills, frontmatter_text or ""
 
 
-def _resolve_skill_body(
+def _get_skill_search_locations(
     skill: str,
     *,
     agent_dir: Path,
     workspace_root: Optional[Path],
-) -> str:
-    """Load a skill body from the agent or workspace contexts."""
-    attempted_paths: list[Path] = []
-    skill_filename = f"{skill}{SKILL_SUFFIX}"
+) -> list[Path]:
+    """Build the search path list for a skill file.
     
-    # Search order:
-    # 1. Sibling to SUBAGENT.md (e.g., agents/vscode-expert/research.skill.md)
-    # 2. In the agents folder itself (e.g., agents/research.skill.md)
-    # 3. Sibling contexts folder (e.g., contexts/research.skill.md)
-    # 4. Explicit workspace_root/contexts if provided
+    Search order:
+    1. Sibling to SUBAGENT.md (e.g., agents/vscode-expert/research.skill.md)
+    2. In the agents folder itself (e.g., agents/research.skill.md)
+    3. Sibling contexts folder (e.g., contexts/research.skill.md)
+    4. Explicit workspace_root/contexts if provided
+    """
+    skill_filename = f"{skill}{SKILL_SUFFIX}"
     
     locations_to_check: list[Path] = [
         agent_dir / skill_filename,  # Sibling to SUBAGENT.md
@@ -138,9 +138,24 @@ def _resolve_skill_body(
         workspace_skill = workspace_root / CONTEXTS_DIRNAME / skill_filename
         if workspace_skill not in locations_to_check:
             locations_to_check.append(workspace_skill)
+    
+    return locations_to_check
 
+
+def _resolve_skill_body(
+    skill: str,
+    *,
+    agent_dir: Path,
+    workspace_root: Optional[Path],
+) -> str:
+    """Load a skill body from the agent or workspace contexts."""
+    locations_to_check = _get_skill_search_locations(
+        skill,
+        agent_dir=agent_dir,
+        workspace_root=workspace_root,
+    )
+    
     for skill_path in locations_to_check:
-        attempted_paths.append(skill_path)
         if skill_path.exists():
             text = skill_path.read_text(encoding="utf-8")
             _, body = _split_frontmatter(
@@ -150,7 +165,7 @@ def _resolve_skill_body(
             )
             return body.strip("\n")
 
-    raise SkillResolutionError(skill, attempted_paths)
+    raise SkillResolutionError(skill, locations_to_check)
 
 
 def _compose_chatmode(
@@ -228,4 +243,6 @@ __all__ = [
     "SkillResolutionError",
     "render_chatmode",
     "transpile_subagent",
+    "_load_subagent_definition",
+    "_get_skill_search_locations",
 ]

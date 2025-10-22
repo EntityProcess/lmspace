@@ -72,7 +72,7 @@ Test agent.
     
     assert exit_code == 1
     captured = capsys.readouterr()
-    assert "skill 'missing' not found" in captured.err
+    assert "Skill 'missing' not found" in captured.err
 
 
 def test_skills_no_skills(tmp_path: Path, capsys) -> None:

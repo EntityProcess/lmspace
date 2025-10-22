@@ -98,7 +98,7 @@ def test_provision_skip_existing(template_dir: Path, target_root: Path) -> None:
 
 
 def test_provision_skip_locked(template_dir: Path, target_root: Path) -> None:
-    """Test that locked subagents are skipped and additional ones are created."""
+    """Test that locked subagents are overridden with --force."""
     # Create initial subagent
     provision_subagents(
         template=template_dir,
@@ -113,7 +113,7 @@ def test_provision_skip_locked(template_dir: Path, target_root: Path) -> None:
     lock_file = target_root / "subagent-1" / DEFAULT_LOCK_NAME
     lock_file.touch()
 
-    # Request 1 unlocked subagent - should create subagent-2 since subagent-1 is locked
+    # Request 1 unlocked subagent with force=True - should overwrite subagent-1 and create subagent-2
     created, skipped_existing, skipped_locked = provision_subagents(
         template=template_dir,
         target_root=target_root,
@@ -123,14 +123,15 @@ def test_provision_skip_locked(template_dir: Path, target_root: Path) -> None:
         dry_run=False,
     )
 
-    assert len(created) == 1
+    assert len(created) == 2  # subagent-1 (overwritten) and subagent-2 (newly created)
     assert len(skipped_existing) == 0
-    assert len(skipped_locked) == 1
+    assert len(skipped_locked) == 1  # subagent-1 was locked before overwriting
     
-    # Should have created subagent-2
+    # Both should exist
+    assert (target_root / "subagent-1").exists()
     assert (target_root / "subagent-2").exists()
-    # subagent-1 should still be locked
-    assert lock_file.exists()
+    # subagent-1 lock should be removed (overwritten with fresh template)
+    assert not lock_file.exists()
 
 
 def test_provision_force_unlocked(template_dir: Path, target_root: Path) -> None:
