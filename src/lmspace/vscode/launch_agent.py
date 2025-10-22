@@ -16,8 +16,8 @@ from typing import Optional, Sequence
 
 from .transpiler import (
     SkillResolutionError,
-    SubagentDefinitionError,
-    transpile_subagent,
+    SkillDefinitionError,
+    transpile_skill,
 )
 
 DEFAULT_LOCK_NAME = "subagent.lock"
@@ -96,7 +96,7 @@ def copy_agent_config(
     chatmode_dst = subagent_dir / "subagent.chatmode.md"
     workspace_dst = subagent_dir / "subagent.code-workspace"
 
-    transpile_subagent(
+    transpile_skill(
         agent_template_dir,
         output_path=chatmode_dst,
         workspace_root=workspace_root,
@@ -238,7 +238,7 @@ def launch_agent(
                     subagent_dir,
                     workspace_root=workspace_root,
                 )
-            except (FileNotFoundError, SubagentDefinitionError, SkillResolutionError) as error:
+            except (FileNotFoundError, SkillDefinitionError, SkillResolutionError) as error:
                 print(f"error: {error}", file=sys.stderr)
                 return 1
         # Create subagent lock

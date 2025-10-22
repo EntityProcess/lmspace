@@ -12,29 +12,29 @@ from lmspace.vscode.cli import handle_skills
 
 def test_skills_resolves_paths(tmp_path: Path, capsys) -> None:
     """Test that skills command resolves and outputs skill paths as JSON."""
-    # Create agent directory structure
-    agent_dir = tmp_path / "agents" / "test-agent"
-    agent_dir.mkdir(parents=True)
+    # Create skill directory structure
+    skill_dir = tmp_path / "skills" / "test-skill"
+    skill_dir.mkdir(parents=True)
     
     contexts_dir = tmp_path / "contexts"
     contexts_dir.mkdir()
     
-    # Create SUBAGENT.md with skills
-    subagent_content = """---
+    # Create SKILL.md with skills
+    skill_content = """---
 skills: ['research', 'analysis']
 ---
 
-Test agent description.
+Test skill description.
 """
-    (agent_dir / "SUBAGENT.md").write_text(subagent_content)
+    (skill_dir / "SKILL.md").write_text(skill_content)
     
     # Create skill files
-    (agent_dir / "research.skill.md").write_text("# Research skill")
+    (skill_dir / "research.skill.md").write_text("# Research skill")
     (contexts_dir / "analysis.skill.md").write_text("# Analysis skill")
     
     # Create args namespace
     class Args:
-        agent_config_path = agent_dir
+        agent_config_path = skill_dir
         workspace_root = tmp_path
     
     # Execute command
@@ -53,19 +53,19 @@ Test agent description.
 
 def test_skills_missing_skill_file(tmp_path: Path, capsys) -> None:
     """Test that missing skill file returns error."""
-    agent_dir = tmp_path / "agents" / "test-agent"
-    agent_dir.mkdir(parents=True)
+    skill_dir = tmp_path / "skills" / "test-skill"
+    skill_dir.mkdir(parents=True)
     
-    subagent_content = """---
+    skill_content = """---
 skills: ['missing']
 ---
 
-Test agent.
+Test skill.
 """
-    (agent_dir / "SUBAGENT.md").write_text(subagent_content)
+    (skill_dir / "SKILL.md").write_text(skill_content)
     
     class Args:
-        agent_config_path = agent_dir
+        agent_config_path = skill_dir
         workspace_root = None
     
     exit_code = handle_skills(Args())
@@ -76,20 +76,20 @@ Test agent.
 
 
 def test_skills_no_skills(tmp_path: Path, capsys) -> None:
-    """Test agent with no skills returns empty array."""
-    agent_dir = tmp_path / "agents" / "test-agent"
-    agent_dir.mkdir(parents=True)
+    """Test skill with no sub-skills returns empty array."""
+    skill_dir = tmp_path / "skills" / "test-skill"
+    skill_dir.mkdir(parents=True)
     
-    subagent_content = """---
+    skill_content = """---
 skills: []
 ---
 
-Test agent with no skills.
+Test skill with no sub-skills.
 """
-    (agent_dir / "SUBAGENT.md").write_text(subagent_content)
+    (skill_dir / "SKILL.md").write_text(skill_content)
     
     class Args:
-        agent_config_path = agent_dir
+        agent_config_path = skill_dir
         workspace_root = None
     
     exit_code = handle_skills(Args())

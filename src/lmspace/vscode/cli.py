@@ -12,8 +12,8 @@ from .provision import provision_subagents, DEFAULT_TEMPLATE_DIR, DEFAULT_LOCK_N
 from .launch_agent import launch_agent, warmup_subagents, get_subagent_root
 from .transpiler import (
     SkillResolutionError,
-    SubagentDefinitionError,
-    transpile_subagent,
+    SkillDefinitionError,
+    transpile_skill,
 )
 
 def add_provision_parser(subparsers: Any) -> None:
@@ -321,16 +321,16 @@ def add_transpile_parser(subparsers: Any) -> None:
     """Add the 'transpile' subcommand parser."""
     parser = subparsers.add_parser(
         "transpile",
-        help="Generate a chatmode file from SUBAGENT.md",
+        help="Generate a chatmode file from SKILL.md",
         description=(
-            "Compose subagent.chatmode.md from SUBAGENT.md and optional "
+            "Compose subagent.chatmode.md from SKILL.md and optional "
             "skill snippets."
         ),
     )
     parser.add_argument(
         "agent_config_path",
         type=Path,
-        help="Path to the agent configuration directory containing SUBAGENT.md",
+        help="Path to the skill configuration directory containing SKILL.md",
     )
     parser.add_argument(
         "--output",
@@ -355,12 +355,12 @@ def add_transpile_parser(subparsers: Any) -> None:
 def handle_transpile(args: argparse.Namespace) -> int:
     """Handle the 'transpile' subcommand."""
     try:
-        output_path = transpile_subagent(
+        output_path = transpile_skill(
             args.agent_config_path,
             output_path=args.output,
             workspace_root=args.workspace_root,
         )
-    except (FileNotFoundError, SubagentDefinitionError, SkillResolutionError) as error:
+    except (FileNotFoundError, SkillDefinitionError, SkillResolutionError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
 
@@ -372,16 +372,16 @@ def add_skills_parser(subparsers: Any) -> None:
     """Add the 'skills' subcommand parser."""
     parser = subparsers.add_parser(
         "skills",
-        help="Resolve skill file paths for an agent",
+        help="Resolve skill file paths for a skill definition",
         description=(
-            "Read SUBAGENT.md frontmatter and resolve skill file paths. "
+            "Read SKILL.md frontmatter and resolve skill file paths. "
             "Returns JSON array of absolute paths."
         ),
     )
     parser.add_argument(
         "agent_config_path",
         type=Path,
-        help="Path to the agent configuration directory containing SUBAGENT.md",
+        help="Path to the skill configuration directory containing SKILL.md",
     )
     parser.add_argument(
         "--workspace-root",
@@ -397,20 +397,20 @@ def add_skills_parser(subparsers: Any) -> None:
 def handle_skills(args: argparse.Namespace) -> int:
     """Handle the 'skills' subcommand."""
     from .transpiler import (
-        _load_subagent_definition,
+        _load_skill_definition,
         _get_skill_search_locations,
         SkillResolutionError,
     )
     
     try:
-        agent_dir = args.agent_config_path.resolve()
-        _, _, skills, _ = _load_subagent_definition(agent_dir)
+        skill_dir = args.agent_config_path.resolve()
+        _, _, skills, _ = _load_skill_definition(skill_dir)
         
         skill_paths = []
         for skill in skills:
             locations_to_check = _get_skill_search_locations(
                 skill,
-                agent_dir=agent_dir,
+                skill_dir=skill_dir,
                 workspace_root=args.workspace_root,
             )
             
@@ -430,7 +430,7 @@ def handle_skills(args: argparse.Namespace) -> int:
         print(json.dumps(skill_paths))
         return 0
         
-    except (FileNotFoundError, SubagentDefinitionError, SkillResolutionError) as error:
+    except (FileNotFoundError, SkillDefinitionError, SkillResolutionError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
 

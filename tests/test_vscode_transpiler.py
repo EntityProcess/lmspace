@@ -5,9 +5,9 @@ import pytest
 
 from lmspace.vscode.transpiler import (
     SkillResolutionError,
-    SubagentDefinitionError,
+    SkillDefinitionError,
     render_chatmode,
-    transpile_subagent,
+    transpile_skill,
 )
 
 
@@ -16,12 +16,12 @@ def _write(path: Path, content: str) -> None:
     path.write_text(textwrap.dedent(content).lstrip("\n"), encoding="utf-8")
 
 
-def test_transpile_subagent_writes_chatmode(tmp_path: Path) -> None:
-    agent_dir = tmp_path / "agent"
-    agent_dir.mkdir()
+def test_transpile_skill_writes_chatmode(tmp_path: Path) -> None:
+    skill_dir = tmp_path / "skill"
+    skill_dir.mkdir()
 
     _write(
-        agent_dir / "SUBAGENT.md",
+        skill_dir / "SKILL.md",
         """
         ---
         description: Example Agent
@@ -34,7 +34,7 @@ def test_transpile_subagent_writes_chatmode(tmp_path: Path) -> None:
     )
 
     output_path = tmp_path / "build" / "subagent.chatmode.md"
-    result_path = transpile_subagent(agent_dir, output_path=output_path)
+    result_path = transpile_skill(skill_dir, output_path=output_path)
 
     assert result_path == output_path.resolve()
     content = output_path.read_text(encoding="utf-8")
@@ -45,11 +45,11 @@ def test_transpile_subagent_writes_chatmode(tmp_path: Path) -> None:
 
 
 def test_transpile_excludes_skills_from_chatmode_frontmatter(tmp_path: Path) -> None:
-    agent_dir = tmp_path / "agent"
-    agent_dir.mkdir()
+    skill_dir = tmp_path / "skill"
+    skill_dir.mkdir()
 
     _write(
-        agent_dir / "SUBAGENT.md",
+        skill_dir / "SKILL.md",
         """
         ---
         description: Agent with skills
@@ -64,20 +64,20 @@ def test_transpile_excludes_skills_from_chatmode_frontmatter(tmp_path: Path) -> 
     
     # Create the skill files so the transpiler can resolve them
     _write(
-        agent_dir / "research.skill.md",
+        skill_dir / "research.skill.md",
         """
         Research skill content.
         """,
     )
     
     _write(
-        agent_dir / "analysis.skill.md",
+        skill_dir / "analysis.skill.md",
         """
         Analysis skill content.
         """,
     )
 
-    chatmode = render_chatmode(agent_dir)
+    chatmode = render_chatmode(skill_dir)
     
     # The skills property should NOT appear in the chatmode frontmatter
     assert "skills:" not in chatmode
@@ -90,32 +90,32 @@ def test_transpile_excludes_skills_from_chatmode_frontmatter(tmp_path: Path) -> 
     assert "Analysis skill content." in chatmode
 
 
-def test_transpile_includes_skill_bodies_from_agent_and_workspace(tmp_path: Path) -> None:
-    agent_dir = tmp_path / "agent"
-    agent_dir.mkdir()
+def test_transpile_includes_skill_bodies_from_skill_and_workspace(tmp_path: Path) -> None:
+    skill_dir = tmp_path / "skill"
+    skill_dir.mkdir()
 
     _write(
-        agent_dir / "SUBAGENT.md",
+        skill_dir / "SKILL.md",
         """
         ---
         description: Skilled Agent
         model: test-model
         tools: [alpha]
-        skills: [agent-skill, shared-skill]
+        skills: [skill-specific, shared-skill]
         ---
 
-        Agent body section.
+        Skill body section.
         """,
     )
 
     _write(
-        agent_dir / "agent-skill.skill.md",
+        skill_dir / "skill-specific.skill.md",
         """
         ---
-        summary: agent skill
+        summary: skill-specific
         ---
 
-        Agent skill body line.
+        Skill-specific body line.
         """,
     )
 
@@ -131,30 +131,30 @@ def test_transpile_includes_skill_bodies_from_agent_and_workspace(tmp_path: Path
         """,
     )
 
-    chatmode = render_chatmode(agent_dir, workspace_root=workspace_root)
+    chatmode = render_chatmode(skill_dir, workspace_root=workspace_root)
 
-    assert "Agent body section." in chatmode
-    assert "Agent skill body line." in chatmode
+    assert "Skill body section." in chatmode
+    assert "Skill-specific body line." in chatmode
     assert "Workspace shared skill body." in chatmode
     # Skill frontmatter should not leak into the output
     assert "summary:" not in chatmode
     assert "note:" not in chatmode
 
 
-def test_transpile_missing_subagent(tmp_path: Path) -> None:
-    agent_dir = tmp_path / "missing"
-    agent_dir.mkdir()
+def test_transpile_missing_skill(tmp_path: Path) -> None:
+    skill_dir = tmp_path / "missing"
+    skill_dir.mkdir()
 
     with pytest.raises(FileNotFoundError):
-        render_chatmode(agent_dir)
+        render_chatmode(skill_dir)
 
 
 def test_transpile_invalid_frontmatter(tmp_path: Path) -> None:
-    agent_dir = tmp_path / "agent"
-    agent_dir.mkdir()
+    skill_dir = tmp_path / "skill"
+    skill_dir.mkdir()
 
     _write(
-        agent_dir / "SUBAGENT.md",
+        skill_dir / "SKILL.md",
         """
         ---
         description: Missing terminator
@@ -163,16 +163,16 @@ def test_transpile_invalid_frontmatter(tmp_path: Path) -> None:
         """,
     )
 
-    with pytest.raises(SubagentDefinitionError):
-        render_chatmode(agent_dir)
+    with pytest.raises(SkillDefinitionError):
+        render_chatmode(skill_dir)
 
 
 def test_transpile_missing_skill_reports_all_attempts(tmp_path: Path) -> None:
-    agent_dir = tmp_path / "agent"
-    agent_dir.mkdir()
+    skill_dir = tmp_path / "skill"
+    skill_dir.mkdir()
 
     _write(
-        agent_dir / "SUBAGENT.md",
+        skill_dir / "SKILL.md",
         """
         ---
         description: Skill seeker
@@ -188,9 +188,9 @@ def test_transpile_missing_skill_reports_all_attempts(tmp_path: Path) -> None:
     workspace_root.mkdir()
 
     with pytest.raises(SkillResolutionError) as exc:
-        render_chatmode(agent_dir, workspace_root=workspace_root)
+        render_chatmode(skill_dir, workspace_root=workspace_root)
 
     message = str(exc.value)
     assert "unknown" in message
-    assert str(agent_dir / "unknown.skill.md") in message
+    assert str(skill_dir / "unknown.skill.md") in message
     assert str(workspace_root / "contexts" / "unknown.skill.md") in message

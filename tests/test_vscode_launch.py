@@ -36,10 +36,10 @@ def subagent_root(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def agent_template(tmp_path: Path) -> Path:
-    """Create a minimal agent template with SUBAGENT definitions."""
-    template = tmp_path / "agent-template"
+    """Create a minimal skill template with SKILL definitions."""
+    template = tmp_path / "skill-template"
     template.mkdir()
-    (template / "SUBAGENT.md").write_text(
+    (template / "SKILL.md").write_text(
         """---
 description: Test Agent
 model: test-model
@@ -103,8 +103,8 @@ def test_copy_agent_config(agent_template: Path, tmp_path: Path) -> None:
     assert "Primary body content." in chatmode_content
 
 
-def test_copy_agent_config_missing_subagent(tmp_path: Path) -> None:
-    """Test error when SUBAGENT.md is missing."""
+def test_copy_agent_config_missing_skill(tmp_path: Path) -> None:
+    """Test error when SKILL.md is missing."""
     template = tmp_path / "template"
     template.mkdir()
     (template / "subagent.code-workspace").write_text("{}\n")
@@ -112,7 +112,7 @@ def test_copy_agent_config_missing_subagent(tmp_path: Path) -> None:
     subagent = tmp_path / "subagent-1"
     subagent.mkdir()
 
-    with pytest.raises(FileNotFoundError, match="SUBAGENT.md not found"):
+    with pytest.raises(FileNotFoundError, match="SKILL.md not found"):
         copy_agent_config(template, subagent)
 
 
@@ -120,7 +120,7 @@ def test_copy_agent_config_missing_workspace(tmp_path: Path) -> None:
     """Test fallback to default workspace when template workspace is missing."""
     template = tmp_path / "template"
     template.mkdir()
-    (template / "SUBAGENT.md").write_text(
+    (template / "SKILL.md").write_text(
         """---
 description: Fallback Agent
 model: fallback

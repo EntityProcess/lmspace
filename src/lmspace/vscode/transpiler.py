@@ -1,4 +1,4 @@
-"""Generate VS Code chatmode files from SUBAGENT definitions."""
+"""Generate VS Code chatmode files from SKILL definitions."""
 
 from __future__ import annotations
 
@@ -7,14 +7,14 @@ from typing import Any, Optional, Sequence
 
 import yaml
 
-SUBAGENT_FILENAME = "SUBAGENT.md"
+SKILL_FILENAME = "SKILL.md"
 CHATMODE_FILENAME = "subagent.chatmode.md"
 CONTEXTS_DIRNAME = "contexts"
 SKILL_SUFFIX = ".skill.md"
 
 
-class SubagentDefinitionError(ValueError):
-    """Raised when a SUBAGENT.md file is malformed."""
+class SkillDefinitionError(ValueError):
+    """Raised when a SKILL.md file is malformed."""
 
 
 class SkillResolutionError(FileNotFoundError):
@@ -43,7 +43,7 @@ def _split_frontmatter(
                 closing = index
                 break
         if closing is None:
-            raise SubagentDefinitionError(
+            raise SkillDefinitionError(
                 f"{path} is missing a closing '---' delimiter for its frontmatter."
             )
         frontmatter = "".join(lines[1:closing])
@@ -51,39 +51,39 @@ def _split_frontmatter(
         return frontmatter, body
 
     if require:
-        raise SubagentDefinitionError(
+        raise SkillDefinitionError(
             f"{path} must start with a YAML frontmatter block delimited by '---'."
         )
 
     return None, text
 
 
-def _load_subagent_definition(agent_dir: Path) -> tuple[dict[str, Any], str, list[str], str]:
-    """Load and validate SUBAGENT.md from an agent directory."""
-    subagent_path = agent_dir / SUBAGENT_FILENAME
-    if not subagent_path.exists():
-        raise FileNotFoundError(f"SUBAGENT.md not found at {subagent_path}")
+def _load_skill_definition(skill_dir: Path) -> tuple[dict[str, Any], str, list[str], str]:
+    """Load and validate SKILL.md from a skill directory."""
+    skill_path = skill_dir / SKILL_FILENAME
+    if not skill_path.exists():
+        raise FileNotFoundError(f"SKILL.md not found at {skill_path}")
 
-    text = subagent_path.read_text(encoding="utf-8")
+    text = skill_path.read_text(encoding="utf-8")
     if not text.strip():
-        raise SubagentDefinitionError(f"{subagent_path} is empty.")
+        raise SkillDefinitionError(f"{skill_path} is empty.")
 
     frontmatter_text, body = _split_frontmatter(
         text,
-        path=subagent_path,
+        path=skill_path,
         require=True,
     )
 
     try:
         data = yaml.safe_load(frontmatter_text or "") or {}
     except yaml.YAMLError as error:
-        raise SubagentDefinitionError(
-            f"Failed to parse frontmatter in {subagent_path}: {error}"
+        raise SkillDefinitionError(
+            f"Failed to parse frontmatter in {skill_path}: {error}"
         ) from error
 
     if not isinstance(data, dict):
-        raise SubagentDefinitionError(
-            f"Frontmatter in {subagent_path} must be a mapping."
+        raise SkillDefinitionError(
+            f"Frontmatter in {skill_path} must be a mapping."
         )
 
     skills_raw = data.get("skills", [])
@@ -93,13 +93,13 @@ def _load_subagent_definition(agent_dir: Path) -> tuple[dict[str, Any], str, lis
         skills = []
         for skill in skills_raw:
             if not isinstance(skill, str) or not skill.strip():
-                raise SubagentDefinitionError(
-                    f"'skills' entries in {subagent_path} must be non-empty strings."
+                raise SkillDefinitionError(
+                    f"'skills' entries in {skill_path} must be non-empty strings."
                 )
             skills.append(skill.strip())
     else:
-        raise SubagentDefinitionError(
-            f"'skills' frontmatter in {subagent_path} must be a sequence of strings."
+        raise SkillDefinitionError(
+            f"'skills' frontmatter in {skill_path} must be a sequence of strings."
         )
 
     return data, body, skills, frontmatter_text or ""
@@ -108,29 +108,29 @@ def _load_subagent_definition(agent_dir: Path) -> tuple[dict[str, Any], str, lis
 def _get_skill_search_locations(
     skill: str,
     *,
-    agent_dir: Path,
+    skill_dir: Path,
     workspace_root: Optional[Path],
 ) -> list[Path]:
     """Build the search path list for a skill file.
     
     Search order:
-    1. Sibling to SUBAGENT.md (e.g., agents/vscode-expert/research.skill.md)
-    2. In the agents folder itself (e.g., agents/research.skill.md)
+    1. Sibling to SKILL.md (e.g., skills/vscode-expert/research.skill.md)
+    2. In the skills folder itself (e.g., skills/research.skill.md)
     3. Sibling contexts folder (e.g., contexts/research.skill.md)
     4. Explicit workspace_root/contexts if provided
     """
     skill_filename = f"{skill}{SKILL_SUFFIX}"
     
     locations_to_check: list[Path] = [
-        agent_dir / skill_filename,  # Sibling to SUBAGENT.md
+        skill_dir / skill_filename,  # Sibling to SKILL.md
     ]
     
-    # If agent is in an agents/ directory, check the agents/ folder and sibling contexts/
-    if agent_dir.parent.name == "agents":
-        agents_folder = agent_dir.parent
-        locations_to_check.append(agents_folder / skill_filename)  # In agents/ folder
+    # If skill is in a skills/ directory, check the skills/ folder and sibling contexts/
+    if skill_dir.parent.name == "skills":
+        skills_folder = skill_dir.parent
+        locations_to_check.append(skills_folder / skill_filename)  # In skills/ folder
         
-        workspace_contexts = agents_folder.parent / CONTEXTS_DIRNAME / skill_filename
+        workspace_contexts = skills_folder.parent / CONTEXTS_DIRNAME / skill_filename
         locations_to_check.append(workspace_contexts)  # Sibling contexts/
     
     # Also check explicit workspace_root if provided
@@ -145,13 +145,13 @@ def _get_skill_search_locations(
 def _resolve_skill_body(
     skill: str,
     *,
-    agent_dir: Path,
+    skill_dir: Path,
     workspace_root: Optional[Path],
 ) -> str:
-    """Load a skill body from the agent or workspace contexts."""
+    """Load a skill body from the skill directory or workspace contexts."""
     locations_to_check = _get_skill_search_locations(
         skill,
-        agent_dir=agent_dir,
+        skill_dir=skill_dir,
         workspace_root=workspace_root,
     )
     
@@ -202,16 +202,16 @@ def _compose_chatmode(
 
 
 def render_chatmode(
-    agent_dir: Path,
+    skill_dir: Path,
     *,
     workspace_root: Optional[Path] = None,
 ) -> str:
     """Return the generated chatmode string without writing it to disk."""
-    _, body, skills, frontmatter_text = _load_subagent_definition(agent_dir)
+    _, body, skills, frontmatter_text = _load_skill_definition(skill_dir)
     skill_bodies = [
         _resolve_skill_body(
             skill,
-            agent_dir=agent_dir,
+            skill_dir=skill_dir,
             workspace_root=workspace_root,
         )
         for skill in skills
@@ -219,16 +219,16 @@ def render_chatmode(
     return _compose_chatmode(frontmatter_text, body, skill_bodies)
 
 
-def transpile_subagent(
-    agent_dir: Path,
+def transpile_skill(
+    skill_dir: Path,
     *,
     output_path: Optional[Path] = None,
     workspace_root: Optional[Path] = None,
 ) -> Path:
-    """Generate a chatmode file from a SUBAGENT definition."""
-    chatmode_text = render_chatmode(agent_dir, workspace_root=workspace_root)
+    """Generate a chatmode file from a SKILL definition."""
+    chatmode_text = render_chatmode(skill_dir, workspace_root=workspace_root)
 
-    target_path = output_path or agent_dir / CHATMODE_FILENAME
+    target_path = output_path or skill_dir / CHATMODE_FILENAME
     target_path = target_path.resolve()
     target_path.parent.mkdir(parents=True, exist_ok=True)
     target_path.write_text(chatmode_text, encoding="utf-8")
@@ -239,10 +239,11 @@ __all__ = [
     "CHATMODE_FILENAME",
     "CONTEXTS_DIRNAME",
     "SKILL_SUFFIX",
-    "SubagentDefinitionError",
+    "SKILL_FILENAME",
+    "SkillDefinitionError",
     "SkillResolutionError",
     "render_chatmode",
-    "transpile_subagent",
-    "_load_subagent_definition",
+    "transpile_skill",
+    "_load_skill_definition",
     "_get_skill_search_locations",
 ]

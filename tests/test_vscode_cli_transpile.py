@@ -13,12 +13,12 @@ def _write(path: Path, content: str) -> None:
 
 
 def test_cli_transpile_generates_chatmode_with_workspace(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    agent_dir = tmp_path / "agent"
-    agent_dir.mkdir()
+    skill_dir = tmp_path / "skill"
+    skill_dir.mkdir()
     workspace_root = tmp_path / "workspace"
 
     _write(
-        agent_dir / "SUBAGENT.md",
+        skill_dir / "SKILL.md",
         """
         ---
         description: CLI Agent
@@ -47,7 +47,7 @@ def test_cli_transpile_generates_chatmode_with_workspace(tmp_path: Path, capsys:
         [
             "code",
             "transpile",
-            str(agent_dir),
+            str(skill_dir),
             "--workspace-root",
             str(workspace_root),
             "--output",
@@ -66,11 +66,11 @@ def test_cli_transpile_generates_chatmode_with_workspace(tmp_path: Path, capsys:
 
 
 def test_cli_transpile_failure_is_reported(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    agent_dir = tmp_path / "agent"
-    agent_dir.mkdir()
+    skill_dir = tmp_path / "skill"
+    skill_dir.mkdir()
 
     _write(
-        agent_dir / "SUBAGENT.md",
+        skill_dir / "SKILL.md",
         """
         ---
         description: Missing Skill Agent
@@ -85,11 +85,11 @@ def test_cli_transpile_failure_is_reported(tmp_path: Path, capsys: pytest.Captur
     exit_code = cli.main([
         "code",
         "transpile",
-        str(agent_dir),
+        str(skill_dir),
     ])
 
     assert exit_code == 1
     captured = capsys.readouterr()
     assert "error:" in captured.err
     assert "missing.skill.md" in captured.err
-    assert not (agent_dir / CHATMODE_FILENAME).exists()
+    assert not (skill_dir / CHATMODE_FILENAME).exists()
