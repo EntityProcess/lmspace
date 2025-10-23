@@ -16,7 +16,6 @@ def template_dir(tmp_path: Path) -> Path:
     """Create a minimal template directory."""
     template = tmp_path / "template"
     template.mkdir()
-    (template / "subagent.chatmode.md").write_text("# Test chatmode\n")
     (template / "subagent.code-workspace").write_text("{}\n")
     return template
 
@@ -46,7 +45,6 @@ def test_provision_single_subagent(template_dir: Path, target_root: Path) -> Non
 
     subagent_dir = target_root / "subagent-1"
     assert subagent_dir.exists()
-    assert (subagent_dir / "subagent.chatmode.md").exists()
     assert (subagent_dir / "subagent.code-workspace").exists()
 
 
@@ -131,7 +129,6 @@ def test_provision_skip_locked(template_dir: Path, target_root: Path) -> None:
     assert (target_root / "subagent-1").exists()
     assert (target_root / "subagent-2").exists()
     # Template files should exist
-    assert (target_root / "subagent-1" / "subagent.chatmode.md").exists()
     assert (target_root / "subagent-1" / "subagent.code-workspace").exists()
     # Lock file still exists (we don't delete files, just overwrite template files)
     assert lock_file.exists()
@@ -170,7 +167,6 @@ def test_provision_force_unlocked(template_dir: Path, target_root: Path) -> None
     # Marker file remains (we don't delete files, just overwrite template files)
     assert marker.exists()
     # Template files should exist
-    assert (target_root / "subagent-1" / "subagent.chatmode.md").exists()
     assert (target_root / "subagent-1" / "subagent.code-workspace").exists()
 
 
@@ -386,7 +382,6 @@ def test_provision_force_dir_in_use(
     # Should have successfully provisioned the subagent
     assert len(created) == 1
     assert created[0] == subagent_dir
-    assert (subagent_dir / "subagent.chatmode.md").exists()
     assert (subagent_dir / "subagent.code-workspace").exists()
     # Extra file should still exist (we don't delete, just overwrite template files)
     assert extra_file.exists()

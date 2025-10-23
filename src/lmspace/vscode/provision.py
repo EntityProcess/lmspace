@@ -159,19 +159,10 @@ def provision_subagents(
                 if dry_run:
                     skipped_existing.append(subagent_dir)
                 else:
-                    # Overwrite files directly without deleting the directory
-                    # This works even if the directory is in use by VS Code
-                    shutil.copytree(
-                        template_path,
-                        subagent_dir,
-                        dirs_exist_ok=True,
-                        ignore=shutil.ignore_patterns(
-                            "__pycache__",
-                            "*.pyc",
-                            "*.pyo",
-                            DEFAULT_LOCK_NAME,
-                        ),
-                    )
+                    # Copy only the workspace file
+                    workspace_src = template_path / "subagent.code-workspace"
+                    workspace_dst = subagent_dir / "subagent.code-workspace"
+                    shutil.copy2(workspace_src, workspace_dst)
                     created.append(subagent_dir)
             else:
                 skipped_existing.append(subagent_dir)
@@ -180,16 +171,11 @@ def provision_subagents(
             if dry_run:
                 created.append(subagent_dir)
             else:
-                shutil.copytree(
-                    template_path,
-                    subagent_dir,
-                    ignore=shutil.ignore_patterns(
-                        "__pycache__",
-                        "*.pyc",
-                        "*.pyo",
-                        DEFAULT_LOCK_NAME,
-                    ),
-                )
+                subagent_dir.mkdir(parents=True, exist_ok=True)
+                # Copy only the workspace file
+                workspace_src = template_path / "subagent.code-workspace"
+                workspace_dst = subagent_dir / "subagent.code-workspace"
+                shutil.copy2(workspace_src, workspace_dst)
                 created.append(subagent_dir)
 
     # Provision additional subagents beyond the highest existing number if needed
@@ -200,16 +186,11 @@ def provision_subagents(
         if dry_run:
             created.append(subagent_dir)
         else:
-            shutil.copytree(
-                template_path,
-                subagent_dir,
-                ignore=shutil.ignore_patterns(
-                    "__pycache__",
-                    "*.pyc",
-                    "*.pyo",
-                    DEFAULT_LOCK_NAME,
-                ),
-            )
+            subagent_dir.mkdir(parents=True, exist_ok=True)
+            # Copy only the workspace file
+            workspace_src = template_path / "subagent.code-workspace"
+            workspace_dst = subagent_dir / "subagent.code-workspace"
+            shutil.copy2(workspace_src, workspace_dst)
             created.append(subagent_dir)
 
     return created, skipped_existing, skipped_locked
