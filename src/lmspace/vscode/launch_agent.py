@@ -217,14 +217,6 @@ def launch_agent(
                 print(f"error: {error}", file=sys.stderr)
                 return 1
         
-        # Copy prompt file to subagent directory
-        if not dry_run:
-            try:
-                prompt_dst = subagent_dir / prompt_file.name
-                shutil.copy2(prompt_file, prompt_dst)
-            except OSError as e:
-                print(f"error: Failed to copy prompt file: {e}", file=sys.stderr)
-                return 1
         # Create subagent lock
         if not dry_run:
             try:
@@ -243,9 +235,8 @@ def launch_agent(
                     )
                 resolved_extra.append(str(resolved_attachment))
 
-        # Build attachment list with the copied prompt file
-        prompt_file_in_subagent = subagent_dir / prompt_file.name
-        attachment_paths: list[str] = [str(prompt_file_in_subagent)]
+        # Build attachment list with the prompt file from its original location
+        attachment_paths: list[str] = [str(prompt_file)]
         attachment_paths.extend(resolved_extra)
         
         # Generate timestamp for response file
