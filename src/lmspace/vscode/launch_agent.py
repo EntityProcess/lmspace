@@ -8,8 +8,8 @@ import os
 import shutil
 import subprocess
 import sys
-import tempfile
 import time
+import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Sequence
@@ -209,12 +209,24 @@ def launch_agent(
             )
             return 1
         
+        # Generate a short unique ID for this chat session
+        chat_id = str(uuid.uuid4())[:8]
+        
         # Copy agent configuration (default workspace)
         if not dry_run:
             try:
                 copy_agent_config(subagent_dir)
             except FileNotFoundError as error:
                 print(f"error: {error}", file=sys.stderr)
+                return 1
+        
+        # Copy the prompt file to {uuid}.chatmode.md in the subagent directory
+        chatmode_file = subagent_dir / f"{chat_id}.chatmode.md"
+        if not dry_run:
+            try:
+                shutil.copy2(prompt_file, chatmode_file)
+            except OSError as e:
+                print(f"error: Failed to copy prompt file to chatmode: {e}", file=sys.stderr)
                 return 1
         
         # Create subagent lock
@@ -235,8 +247,8 @@ def launch_agent(
                     )
                 resolved_extra.append(str(resolved_attachment))
 
-        # Build attachment list with the prompt file from its original location
-        attachment_paths: list[str] = [str(prompt_file)]
+        # Build attachment list with extra attachments only (chatmode is used via -m flag)
+        attachment_paths: list[str] = []
         attachment_paths.extend(resolved_extra)
         
         # Generate timestamp for response file
@@ -284,24 +296,12 @@ Do not proceed to step 2 until your response is completely written to the tempor
                     (subagent_dir / "subagent.code-workspace").resolve()
                 )
                 
-                # Use shell=True on all platforms to find 'code' in PATH
-                # This handles code.cmd on Windows and code script on Unix
-                
-                # Open the workspace first
-                subprocess.Popen(f'code "{workspace_path}"', shell=True)
-                
-                # Small delay to let workspace open
-                time.sleep(1)
-                
-                # Open workspace again to ensure it's focused
-                subprocess.Popen(f'code "{workspace_path}"', shell=True)
-                
                 # Write SudoLang prompt to a req.md file in the messages directory
                 req_file = messages_dir / f"{timestamp}_req.md"
                 req_file.write_text(sudolang_prompt, encoding='utf-8')
                 
-                # Build chat command with req.md file as attachment
-                chat_cmd = f'code -r chat -m subagent'
+                # Build chat command with the unique chat mode
+                chat_cmd = f'code -r chat -m {chat_id}'
                 
                 # Add attachments
                 for attachment in attachment_paths:
