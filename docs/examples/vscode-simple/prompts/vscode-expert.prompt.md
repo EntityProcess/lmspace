@@ -4,7 +4,7 @@ tools: ['edit', 'runNotebooks', 'search', 'new', 'runCommands', 'runTasks', 'usa
 model: Grok Code Fast 1 (copilot)
 ---
 
-import { research } from #file:../contexts/research.skill.md
+import { research } from #file:../contexts/research-skill.md
 
 interface VSCodeExpert {
   domain: "prompt files, instructions, chat modes, CLI"
