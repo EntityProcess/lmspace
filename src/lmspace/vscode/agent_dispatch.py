@@ -1,4 +1,4 @@
-"""Launch an agent in an isolated subagent environment."""
+"""Dispatch an agent to an isolated subagent environment."""
 
 from __future__ import annotations
 
@@ -294,7 +294,7 @@ def _launch_vscode_with_chat(
         return False
 
 
-def launch_agent(
+def dispatch_agent(
     user_query: str,
     prompt_file: Path,
     *,
@@ -302,16 +302,16 @@ def launch_agent(
     dry_run: bool = False,
     wait: bool = False,
 ) -> int:
-    """Launch an agent in an isolated subagent.
+    """Dispatch an agent to an isolated subagent.
     
     Args:
         user_query: The user's input query for the agent.
         prompt_file: Path to a prompt file to copy to subagent and attach (e.g., vscode-expert.prompt.md).
         extra_attachments: Additional attachment paths that should be forwarded
-            to the launched chat.
+            to the dispatched chat.
         dry_run: When True, report planned actions without launching VS Code.
         wait: When True, wait for response and print to stdout (sync mode).
-              When False (default), return immediately after launch (async mode).
+              When False (default), return immediately after dispatch (async mode).
     
     Returns:
         Exit code (0 for success, non-zero for failure)
@@ -355,7 +355,7 @@ def launch_agent(
             user_query, response_file_tmp, response_file_final, lock_file
         )
         
-        # Report the launched subagent
+        # Report the dispatched subagent
         print(
             json.dumps(
                 {
@@ -384,7 +384,7 @@ def launch_agent(
                 json.dumps(
                     {
                         "subagent": subagent_dir.name,
-                        "status": "launched",
+                        "status": "dispatched",
                         "response_file": str(response_file_final),
                         "temp_file": str(response_file_tmp),
                     }
@@ -392,7 +392,7 @@ def launch_agent(
                 file=sys.stdout,
             )
             print(
-                f"\nAgent launched. Response will be written to:\n  {response_file_final}\n"
+                f"\nAgent dispatched. Response will be written to:\n  {response_file_final}\n"
                 f"Monitor: check if {response_file_tmp} has been renamed to {response_file_final.name}",
                 file=sys.stderr,
             )
@@ -474,9 +474,9 @@ def warmup_subagents(
 
 
 def main() -> int:
-    """Entry point for the launch script."""
+    """Entry point for the dispatch script."""
     parser = argparse.ArgumentParser(
-        description="Launch an agent in an isolated subagent environment."
+        description="Dispatch an agent to an isolated subagent environment."
     )
     parser.add_argument(
         "prompt_file",
@@ -508,7 +508,7 @@ def main() -> int:
         help="Wait for response and print to stdout (sync mode). Default is async mode.",
     )
     args = parser.parse_args()
-    return launch_agent(
+    return dispatch_agent(
         args.query,
         args.prompt_file,
         extra_attachments=args.attachment,

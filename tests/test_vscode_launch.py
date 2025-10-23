@@ -1,4 +1,4 @@
-"""Tests for VS Code workspace agent launcher."""
+"""Tests for VS Code workspace agent dispatcher."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from lmspace.vscode.launch_agent import (
+from lmspace.vscode.agent_dispatch import (
     find_unlocked_subagent,
     copy_agent_config,
     create_subagent_lock,

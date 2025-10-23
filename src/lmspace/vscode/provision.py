@@ -9,9 +9,9 @@ from pathlib import Path
 from typing import List, Tuple
 
 try:
-    from .launch_agent import warmup_subagents  # type: ignore
+    from .agent_dispatch import warmup_subagents  # type: ignore
 except ImportError:  # pragma: no cover - fallback when executed as a script
-    from lmspace.vscode.launch_agent import warmup_subagents
+    from lmspace.vscode.agent_dispatch import warmup_subagents
 
 DEFAULT_LOCK_NAME = "subagent.lock"
 DEFAULT_TEMPLATE_DIR = (

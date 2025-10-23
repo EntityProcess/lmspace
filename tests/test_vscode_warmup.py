@@ -11,7 +11,7 @@ import pytest
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from lmspace.vscode.launch_agent import (
+from lmspace.vscode.agent_dispatch import (
     get_all_subagent_workspaces,
     warmup_subagents,
 )

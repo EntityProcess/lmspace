@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from .provision import provision_subagents, DEFAULT_TEMPLATE_DIR, DEFAULT_LOCK_NAME
-from .launch_agent import launch_agent, warmup_subagents, get_subagent_root
+from .agent_dispatch import dispatch_agent, warmup_subagents, get_subagent_root
 
 def add_provision_parser(subparsers: Any) -> None:
     """Add the 'provision' subcommand parser."""
@@ -249,7 +249,7 @@ def handle_provision(args: argparse.Namespace) -> int:
 
 def handle_chat(args: argparse.Namespace) -> int:
     """Handle the 'chat' subcommand."""
-    return launch_agent(
+    return dispatch_agent(
         args.query,
         args.prompt_file,
         extra_attachments=args.attachment,

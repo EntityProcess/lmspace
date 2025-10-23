@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from .launch_agent import launch_agent
+from .agent_dispatch import dispatch_agent
 from .provision import provision_subagents
 
 __all__ = [
-    "launch_agent",
+    "dispatch_agent",
     "provision_subagents",
 ]
