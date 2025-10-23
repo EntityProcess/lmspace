@@ -124,37 +124,4 @@ def test_create_subagent_lock(tmp_path: Path) -> None:
 
 
 
-def test_handle_chat_passes_workspace_root(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """Ensure workspace root flows through the chat handler."""
-    captured: dict[str, Path | None] = {}
 
-    def fake_launch(
-        query: str,
-        prompt_file: Path,
-        *,
-        extra_attachments=None,
-        dry_run: bool = False,
-        wait: bool = False,
-        workspace_root: Path | None = None,
-    ) -> int:
-        captured['workspace_root'] = workspace_root
-        return 0
-
-    monkeypatch.setattr('lmspace.vscode.cli.launch_agent', fake_launch)
-
-    prompt_file_path = tmp_path / 'test-prompt.md'
-    prompt_file_path.write_text('Test prompt')
-    
-    args = argparse.Namespace(
-        query='hello',
-        prompt_file=prompt_file_path,
-        attachment=None,
-        dry_run=False,
-        wait=False,
-        workspace_root=tmp_path / 'shared-contexts',
-    )
-
-    exit_code = handle_chat(args)
-
-    assert exit_code == 0
-    assert captured['workspace_root'] == args.workspace_root

@@ -100,14 +100,6 @@ def add_chat_parser(subparsers: Any) -> None:
         ),
     )
     parser.add_argument(
-        "--workspace-root",
-        type=Path,
-        default=None,
-        help=(
-            "Optional workspace root whose contexts/ directory is checked after the agent's contexts."
-        ),
-    )
-    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print what would be done without making changes",
@@ -263,7 +255,6 @@ def handle_chat(args: argparse.Namespace) -> int:
         extra_attachments=args.attachment,
         dry_run=args.dry_run,
         wait=args.wait,
-        workspace_root=args.workspace_root,
     )
 
 

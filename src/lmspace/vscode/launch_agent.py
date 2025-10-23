@@ -168,102 +168,67 @@ def wait_for_response_output(
     return True
 
 
-def launch_agent(
-    user_query: str,
+def _prepare_subagent_directory(
+    subagent_dir: Path,
     prompt_file: Path,
-    *,
-    extra_attachments: Optional[Sequence[Path]] = None,
-    dry_run: bool = False,
-    wait: bool = False,
-    workspace_root: Optional[Path] = None,
+    chat_id: str,
+    dry_run: bool,
 ) -> int:
-    """Launch an agent in an isolated subagent.
+    """Prepare the subagent directory with config, lock, and chatmode.
     
-    Args:
-        user_query: The user's input query for the agent.
-        prompt_file: Path to a prompt file to copy to subagent and attach (e.g., vscode-expert.prompt.md).
-        extra_attachments: Additional attachment paths that should be forwarded
-            to the launched chat.
-        dry_run: When True, report planned actions without launching VS Code.
-        wait: When True, wait for response and print to stdout (sync mode).
-              When False (default), return immediately after launch (async mode).
-        workspace_root: Optional workspace root whose contexts/ directory supplements agent-scoped skills.
-    
-    Returns:
-        Exit code (0 for success, non-zero for failure)
+    Returns 0 on success, 1 on failure.
     """
+    if dry_run:
+        return 0
+    
     try:
-        # Validate prompt file
-        prompt_file = prompt_file.expanduser().resolve()
-        if not prompt_file.exists():
-            raise FileNotFoundError(f"Prompt file not found: {prompt_file}")
-        if not prompt_file.is_file():
-            raise ValueError(f"Prompt file must be a file, not a directory: {prompt_file}")
+        copy_agent_config(subagent_dir)
+    except FileNotFoundError as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 1
+    
+    try:
+        create_subagent_lock(subagent_dir)
+    except OSError as e:
+        print(f"error: Failed to create subagent lock: {e}", file=sys.stderr)
+        return 1
+    
+    chatmode_file = subagent_dir / f"{chat_id}.chatmode.md"
+    try:
+        shutil.copy2(prompt_file, chatmode_file)
+    except OSError as e:
+        print(f"error: Failed to copy prompt file to chatmode: {e}", file=sys.stderr)
+        return 1
+    
+    return 0
 
-        # Get subagent root
-        subagent_root = get_subagent_root()
-        
-        # Find unlocked subagent
-        subagent_dir = find_unlocked_subagent(subagent_root)
-        if subagent_dir is None:
-            print(
-                "error: No unlocked subagents available. Provision additional subagents with:\n"
-                "  lmspace code provision --subagents <desired_total>",
-                file=sys.stderr,
-            )
-            return 1
-        
-        # Generate a short unique ID for this chat session
-        chat_id = str(uuid.uuid4())[:8]
-        
-        # Copy agent configuration (default workspace)
-        if not dry_run:
-            try:
-                copy_agent_config(subagent_dir)
-            except FileNotFoundError as error:
-                print(f"error: {error}", file=sys.stderr)
-                return 1
-        
-        # Create subagent lock (clears old messages and chatmodes)
-        if not dry_run:
-            try:
-                create_subagent_lock(subagent_dir)
-            except OSError as e:
-                print(f"error: Failed to create subagent lock: {e}", file=sys.stderr)
-                return 1
-        
-        # Copy the prompt file to {uuid}.chatmode.md in the subagent directory
-        chatmode_file = subagent_dir / f"{chat_id}.chatmode.md"
-        if not dry_run:
-            try:
-                shutil.copy2(prompt_file, chatmode_file)
-            except OSError as e:
-                print(f"error: Failed to copy prompt file to chatmode: {e}", file=sys.stderr)
-                return 1
-        
-        resolved_extra: list[str] = []
-        if extra_attachments:
-            for attachment in extra_attachments:
-                resolved_attachment = attachment.expanduser().resolve()
-                if not resolved_attachment.exists():
-                    raise FileNotFoundError(
-                        f"Attachment not found: {resolved_attachment}"
-                    )
-                resolved_extra.append(str(resolved_attachment))
 
-        # Build attachment list with extra attachments only (chatmode is used via -m flag)
-        attachment_paths: list[str] = []
-        attachment_paths.extend(resolved_extra)
-        
-        # Generate timestamp for response file
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        messages_dir = subagent_dir / "messages"
-        response_file_tmp = messages_dir / f"{timestamp}_res.tmp.md"
-        response_file_final = messages_dir / f"{timestamp}_res.md"
-        
-        # Create SudoLang prompt with user query and save instructions
-        lock_file = subagent_dir / DEFAULT_LOCK_NAME
-        sudolang_prompt = f"""[[ ## task ## ]]
+def _resolve_attachments(extra_attachments: Optional[Sequence[Path]]) -> list[str]:
+    """Resolve and validate attachment paths.
+    
+    Returns list of resolved attachment path strings.
+    Raises FileNotFoundError if any attachment doesn't exist.
+    """
+    resolved_extra: list[str] = []
+    if extra_attachments:
+        for attachment in extra_attachments:
+            resolved_attachment = attachment.expanduser().resolve()
+            if not resolved_attachment.exists():
+                raise FileNotFoundError(
+                    f"Attachment not found: {resolved_attachment}"
+                )
+            resolved_extra.append(str(resolved_attachment))
+    return resolved_extra
+
+
+def _create_request_prompt(
+    user_query: str,
+    response_file_tmp: Path,
+    response_file_final: Path,
+    lock_file: Path,
+) -> str:
+    """Create the SudoLang prompt with task and system instructions."""
+    return f"""[[ ## task ## ]]
 {user_query}
 
 [[ ## system_instructions ## ]]
@@ -276,8 +241,121 @@ def launch_agent(
 
 Do not proceed to step 2 until your response is completely written to the temporary file.
 """
+
+
+def _launch_vscode_with_chat(
+    subagent_dir: Path,
+    chat_id: str,
+    attachment_paths: list[str],
+    sudolang_prompt: str,
+    timestamp: str,
+) -> bool:
+    """Launch VS Code with the workspace and chat.
+    
+    Returns True on success, False on failure.
+    """
+    try:
+        workspace_path = str(
+            (subagent_dir / "subagent.code-workspace").resolve()
+        )
+        messages_dir = subagent_dir / "messages"
+
+        # Open the workspace first
+        subprocess.Popen(f'code "{workspace_path}"', shell=True)
         
-        # Report the launched subagent in a minimal JSON payload
+        # Small delay to let workspace open
+        time.sleep(1)
+        
+        # Open workspace again to ensure it's focused
+        subprocess.Popen(f'code "{workspace_path}"', shell=True)
+        
+        # Write SudoLang prompt to a req.md file in the messages directory
+        req_file = messages_dir / f"{timestamp}_req.md"
+        req_file.write_text(sudolang_prompt, encoding='utf-8')
+        
+        # Build chat command with the unique chat mode
+        chat_cmd = f'code -r chat -m {chat_id}'
+        
+        # Add attachments
+        for attachment in attachment_paths:
+            chat_cmd += f' -a "{attachment}"'
+        
+        # Add the req.md file as an attachment
+        chat_cmd += f' -a "{req_file}"'
+        
+        # Add a simple prompt that references the req.md file
+        chat_cmd += f' "Follow instructions in {req_file.name}"'
+        
+        subprocess.Popen(chat_cmd, shell=True)
+        return True
+            
+    except Exception as e:
+        print(f"warning: Failed to launch VS Code: {e}", file=sys.stderr)
+        return False
+
+
+def launch_agent(
+    user_query: str,
+    prompt_file: Path,
+    *,
+    extra_attachments: Optional[Sequence[Path]] = None,
+    dry_run: bool = False,
+    wait: bool = False,
+) -> int:
+    """Launch an agent in an isolated subagent.
+    
+    Args:
+        user_query: The user's input query for the agent.
+        prompt_file: Path to a prompt file to copy to subagent and attach (e.g., vscode-expert.prompt.md).
+        extra_attachments: Additional attachment paths that should be forwarded
+            to the launched chat.
+        dry_run: When True, report planned actions without launching VS Code.
+        wait: When True, wait for response and print to stdout (sync mode).
+              When False (default), return immediately after launch (async mode).
+    
+    Returns:
+        Exit code (0 for success, non-zero for failure)
+    """
+    try:
+        # Validate prompt file
+        prompt_file = prompt_file.expanduser().resolve()
+        if not prompt_file.exists():
+            raise FileNotFoundError(f"Prompt file not found: {prompt_file}")
+        if not prompt_file.is_file():
+            raise ValueError(f"Prompt file must be a file, not a directory: {prompt_file}")
+
+        # Find unlocked subagent
+        subagent_root = get_subagent_root()
+        subagent_dir = find_unlocked_subagent(subagent_root)
+        if subagent_dir is None:
+            print(
+                "error: No unlocked subagents available. Provision additional subagents with:\n"
+                "  lmspace code provision --subagents <desired_total>",
+                file=sys.stderr,
+            )
+            return 1
+        
+        # Generate unique ID and prepare directory
+        chat_id = str(uuid.uuid4())[:8]
+        result = _prepare_subagent_directory(subagent_dir, prompt_file, chat_id, dry_run)
+        if result != 0:
+            return result
+        
+        # Resolve attachments
+        attachment_paths = _resolve_attachments(extra_attachments)
+        
+        # Prepare response files and prompt
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        messages_dir = subagent_dir / "messages"
+        response_file_tmp = messages_dir / f"{timestamp}_res.tmp.md"
+        response_file_final = messages_dir / f"{timestamp}_res.md"
+        lock_file = subagent_dir / DEFAULT_LOCK_NAME
+        
+        sudolang_prompt = _create_request_prompt(
+            user_query, response_file_tmp, response_file_final, lock_file
+        )
+        
+        # Report the launched subagent
         print(
             json.dumps(
                 {
@@ -289,56 +367,18 @@ Do not proceed to step 2 until your response is completely written to the tempor
         )
         sys.stdout.flush()
         
-        # Launch VS Code with the workspace and chat
+        # Launch VS Code
         if dry_run:
             return 0
 
-        launch_success = True
-        if not dry_run:
-            try:
-                workspace_path = str(
-                    (subagent_dir / "subagent.code-workspace").resolve()
-                )
-
-                # Use shell=True on all platforms to find 'code' in PATH
-                # This handles code.cmd on Windows and code script on Unix
-                
-                # Open the workspace first
-                subprocess.Popen(f'code "{workspace_path}"', shell=True)
-                
-                # Small delay to let workspace open
-                time.sleep(1)
-                
-                # Open workspace again to ensure it's focused
-                subprocess.Popen(f'code "{workspace_path}"', shell=True)
-                
-                # Write SudoLang prompt to a req.md file in the messages directory
-                req_file = messages_dir / f"{timestamp}_req.md"
-                req_file.write_text(sudolang_prompt, encoding='utf-8')
-                
-                # Build chat command with the unique chat mode
-                chat_cmd = f'code -r chat -m {chat_id}'
-                
-                # Add attachments
-                for attachment in attachment_paths:
-                    chat_cmd += f' -a "{attachment}"'
-                
-                # Add the req.md file as an attachment
-                chat_cmd += f' -a "{req_file}"'
-                
-                # Add a simple prompt that references the req.md file
-                chat_cmd += f' "Follow instructions in {req_file.name}"'
-                
-                subprocess.Popen(chat_cmd, shell=True)
-                    
-            except Exception as e:
-                print(f"warning: Failed to launch VS Code: {e}", file=sys.stderr)
-                launch_success = False
+        launch_success = _launch_vscode_with_chat(
+            subagent_dir, chat_id, attachment_paths, sudolang_prompt, timestamp
+        )
         
         if not launch_success:
             return 1
 
-        # Async mode (default): return immediately with file paths
+        # Async mode: return immediately
         if not wait:
             print(
                 json.dumps(
@@ -358,20 +398,16 @@ Do not proceed to step 2 until your response is completely written to the tempor
             )
             return 0
 
-        # Sync mode (--wait): wait for response and print it
+        # Sync mode: wait for response
         response_received = wait_for_response_output(response_file_tmp, response_file_final)
         
-        # Remove the lock file after sync completion
         if not dry_run:
             try:
                 remove_subagent_lock(subagent_dir)
             except Exception as e:
                 print(f"warning: Failed to remove subagent lock: {e}", file=sys.stderr)
         
-        if not response_received:
-            return 1
-
-        return 0
+        return 0 if response_received else 1
     
     except Exception as e:
         print(
