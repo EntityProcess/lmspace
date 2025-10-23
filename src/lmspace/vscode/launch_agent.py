@@ -96,7 +96,7 @@ def copy_agent_config(
 def create_subagent_lock(subagent_dir: Path) -> Path:
     """Create a lock file to mark the subagent as in-use.
     
-    Also clears any existing messages from previous runs.
+    Also clears any existing messages and chatmodes from previous runs.
     
     Returns the path to the created lock file.
     """
@@ -106,6 +106,10 @@ def create_subagent_lock(subagent_dir: Path) -> Path:
         for msg_file in messages_dir.iterdir():
             if msg_file.is_file():
                 msg_file.unlink()
+    
+    # Clear existing chatmode files
+    for chatmode_file in subagent_dir.glob("*.chatmode.md"):
+        chatmode_file.unlink()
     
     lock_file = subagent_dir / DEFAULT_LOCK_NAME
     lock_file.touch()
@@ -220,6 +224,14 @@ def launch_agent(
                 print(f"error: {error}", file=sys.stderr)
                 return 1
         
+        # Create subagent lock (clears old messages and chatmodes)
+        if not dry_run:
+            try:
+                create_subagent_lock(subagent_dir)
+            except OSError as e:
+                print(f"error: Failed to create subagent lock: {e}", file=sys.stderr)
+                return 1
+        
         # Copy the prompt file to {uuid}.chatmode.md in the subagent directory
         chatmode_file = subagent_dir / f"{chat_id}.chatmode.md"
         if not dry_run:
@@ -227,14 +239,6 @@ def launch_agent(
                 shutil.copy2(prompt_file, chatmode_file)
             except OSError as e:
                 print(f"error: Failed to copy prompt file to chatmode: {e}", file=sys.stderr)
-                return 1
-        
-        # Create subagent lock
-        if not dry_run:
-            try:
-                create_subagent_lock(subagent_dir)
-            except OSError as e:
-                print(f"error: Failed to create subagent lock: {e}", file=sys.stderr)
                 return 1
         
         resolved_extra: list[str] = []
@@ -295,6 +299,18 @@ Do not proceed to step 2 until your response is completely written to the tempor
                 workspace_path = str(
                     (subagent_dir / "subagent.code-workspace").resolve()
                 )
+
+                # Use shell=True on all platforms to find 'code' in PATH
+                # This handles code.cmd on Windows and code script on Unix
+                
+                # Open the workspace first
+                subprocess.Popen(f'code "{workspace_path}"', shell=True)
+                
+                # Small delay to let workspace open
+                time.sleep(1)
+                
+                # Open workspace again to ensure it's focused
+                subprocess.Popen(f'code "{workspace_path}"', shell=True)
                 
                 # Write SudoLang prompt to a req.md file in the messages directory
                 req_file = messages_dir / f"{timestamp}_req.md"
