@@ -56,7 +56,7 @@ def add_provision_parser(subparsers: Any) -> None:
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Overwrite unlocked subagent directories even if they already exist.",
+        help="Unlock and overwrite all subagent directories regardless of lock status.",
     )
     parser.add_argument(
         "--dry-run",

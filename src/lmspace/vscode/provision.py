@@ -62,7 +62,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Overwrite unlocked subagent directories even if they already exist.",
+        help="Unlock and overwrite all subagent directories regardless of lock status.",
     )
     parser.add_argument(
         "--dry-run",
@@ -137,15 +137,18 @@ def provision_subagents(
         else:
             locked_subagents.append(subagent_dir)
 
-    # Calculate how many additional subagents we need to provision
-    additional_needed = max(0, subagents - unlocked_count)
-
     created: List[Path] = []
     skipped_existing: List[Path] = []
     skipped_locked: List[Path] = locked_subagents
 
-    # Provision subagents starting from 1 up to the highest existing number
+    # Provision subagents starting from 1 up to the number needed
+    # When force is enabled, overwrite existing subagents up to the count needed
+    # When force is disabled, only reuse unlocked subagents and skip locked ones
+    subagents_provisioned = 0
     for index in range(1, highest_number + 1):
+        if subagents_provisioned >= subagents:
+            break
+            
         subagent_dir = target_path / f"subagent-{index}"
         lock_file = subagent_dir / lock_name
 
@@ -154,18 +157,27 @@ def provision_subagents(
             if lock_file.exists() and not force:
                 continue
             
-            # Overwrite if force is enabled, otherwise skip
+            # When force is enabled, unlock and overwrite all existing subagents
             if force:
-                if dry_run:
-                    skipped_existing.append(subagent_dir)
-                else:
+                if not dry_run:
+                    # Remove lock file if it exists
+                    if lock_file.exists():
+                        lock_file.unlink()
                     # Copy only the workspace file
                     workspace_src = template_path / "subagent.code-workspace"
                     workspace_dst = subagent_dir / "subagent.code-workspace"
                     shutil.copy2(workspace_src, workspace_dst)
                     created.append(subagent_dir)
-            else:
+                else:
+                    created.append(subagent_dir)
+                # Remove from locked list since we're processing it
+                if subagent_dir in locked_subagents:
+                    locked_subagents.remove(subagent_dir)
+                subagents_provisioned += 1
+            elif not lock_file.exists():
+                # Without force, unlocked subagent - skip it as it's already provisioned
                 skipped_existing.append(subagent_dir)
+                subagents_provisioned += 1
         else:
             # Subagent doesn't exist, create it
             if dry_run:
@@ -177,10 +189,12 @@ def provision_subagents(
                 workspace_dst = subagent_dir / "subagent.code-workspace"
                 shutil.copy2(workspace_src, workspace_dst)
                 created.append(subagent_dir)
+            subagents_provisioned += 1
 
     # Provision additional subagents beyond the highest existing number if needed
-    for i in range(additional_needed):
-        index = highest_number + i + 1
+    while subagents_provisioned < subagents:
+        index = highest_number + 1
+        highest_number = index
         subagent_dir = target_path / f"subagent-{index}"
 
         if dry_run:
@@ -192,6 +206,7 @@ def provision_subagents(
             workspace_dst = subagent_dir / "subagent.code-workspace"
             shutil.copy2(workspace_src, workspace_dst)
             created.append(subagent_dir)
+        subagents_provisioned += 1
 
     return created, skipped_existing, skipped_locked
 
