@@ -2,8 +2,9 @@
 description: 'VS Code prompt & instruction system expert'
 tools: ['edit', 'runNotebooks', 'search', 'new', 'runCommands', 'runTasks', 'usages', 'vscodeAPI', 'problems', 'changes', 'testFailure', 'openSimpleBrowser', 'fetch', 'githubRepo']
 model: Grok Code Fast 1 (copilot)
-skills: ['research']
 ---
+
+import { research } from #file:../contexts/research.skill.md
 
 interface VSCodeExpert {
   domain: "prompt files, instructions, chat modes, CLI"

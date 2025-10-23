@@ -82,68 +82,31 @@ def test_find_unlocked_subagent_nonexistent_root(tmp_path: Path) -> None:
 
 
 def test_copy_agent_config(agent_template: Path, tmp_path: Path) -> None:
-    """Test copying agent configuration files."""
+    """Test copying default workspace configuration."""
     subagent = tmp_path / "subagent-1"
     subagent.mkdir()
 
-    result = copy_agent_config(agent_template, subagent)
+    result = copy_agent_config(subagent)
 
-    assert "chatmode" in result
     assert "workspace" in result
     assert "messages_dir" in result
-    assert (subagent / "subagent.chatmode.md").exists()
     assert (subagent / "subagent.code-workspace").exists()
     assert (subagent / "messages").exists()
     assert (subagent / "messages").is_dir()
 
-    # Check content was copied
-    chatmode_content = (subagent / "subagent.chatmode.md").read_text()
-    assert chatmode_content.splitlines()[0] == "---"
-    assert "description: Test Agent" in chatmode_content
-    assert "Primary body content." in chatmode_content
 
-
-def test_copy_agent_config_missing_skill(tmp_path: Path) -> None:
-    """Test error when SKILL.md is missing."""
-    template = tmp_path / "template"
-    template.mkdir()
-    (template / "subagent.code-workspace").write_text("{}\n")
-
+def test_copy_agent_config_uses_default_workspace(tmp_path: Path) -> None:
+    """Test that copy_agent_config uses the default workspace template."""
     subagent = tmp_path / "subagent-1"
     subagent.mkdir()
 
-    with pytest.raises(FileNotFoundError, match="SKILL.md not found"):
-        copy_agent_config(template, subagent)
-
-
-def test_copy_agent_config_missing_workspace(tmp_path: Path) -> None:
-    """Test fallback to default workspace when template workspace is missing."""
-    template = tmp_path / "template"
-    template.mkdir()
-    (template / "SKILL.md").write_text(
-        """---
-description: Fallback Agent
-model: fallback
-tools: [one]
----
-
-Fallback body.
-"""
-    )
-
-    subagent = tmp_path / "subagent-1"
-    subagent.mkdir()
-
-
-    # Should succeed by falling back to default workspace template
-    result = copy_agent_config(template, subagent)
-    
-    assert "chatmode" in result
+    # Should succeed using default workspace template
+    result = copy_agent_config(subagent)
     assert "workspace" in result
-    assert "messages_dir" in result
-    assert (subagent / "subagent.chatmode.md").exists()
     assert (subagent / "subagent.code-workspace").exists()
-    assert (subagent / "messages").exists()
+
+
+
 
 
 def test_create_subagent_lock(tmp_path: Path) -> None:
@@ -167,7 +130,7 @@ def test_handle_chat_passes_workspace_root(monkeypatch: pytest.MonkeyPatch, tmp_
 
     def fake_launch(
         query: str,
-        agent_template_dir: Path,
+        prompt_file: Path,
         *,
         extra_attachments=None,
         dry_run: bool = False,
@@ -179,9 +142,12 @@ def test_handle_chat_passes_workspace_root(monkeypatch: pytest.MonkeyPatch, tmp_
 
     monkeypatch.setattr('lmspace.vscode.cli.launch_agent', fake_launch)
 
+    prompt_file_path = tmp_path / 'test-prompt.md'
+    prompt_file_path.write_text('Test prompt')
+    
     args = argparse.Namespace(
         query='hello',
-        agent_config_path=tmp_path,
+        prompt_file=prompt_file_path,
         attachment=None,
         dry_run=False,
         wait=False,

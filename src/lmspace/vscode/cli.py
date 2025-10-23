@@ -86,12 +86,9 @@ def add_chat_parser(subparsers: Any) -> None:
         description="Start a chat with an agent in an isolated subagent environment.",
     )
     parser.add_argument(
-        "agent_config_path",
+        "prompt_file",
         type=Path,
-        help=(
-            "Path to the agent configuration directory (e.g., "
-            "'agents/glow-ctf')"
-        ),
+        help="Path to a prompt file to copy and attach (e.g., vscode-expert.prompt.md)",
     )
     parser.add_argument(
         "query",
@@ -267,7 +264,7 @@ def handle_chat(args: argparse.Namespace) -> int:
     """Handle the 'chat' subcommand."""
     return launch_agent(
         args.query,
-        args.agent_config_path,
+        args.prompt_file,
         extra_attachments=args.attachment,
         dry_run=args.dry_run,
         wait=args.wait,

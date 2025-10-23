@@ -14,12 +14,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, Sequence
 
-from .transpiler import (
-    SkillResolutionError,
-    SkillDefinitionError,
-    transpile_skill,
-)
-
 DEFAULT_LOCK_NAME = "subagent.lock"
 
 
@@ -79,35 +73,21 @@ def find_unlocked_subagent(subagent_root: Path) -> Optional[Path]:
 
 
 def copy_agent_config(
-    agent_template_dir: Path,
     subagent_dir: Path,
-    *,
-    workspace_root: Optional[Path] = None,
 ) -> dict:
-    """Transpile chatmode and copy workspace assets into the subagent directory."""
-    workspace_src = agent_template_dir / "subagent.code-workspace"
-
+    """Copy default workspace file into the subagent directory."""
+    default_template_dir = get_default_template_dir()
+    workspace_src = default_template_dir / "subagent.code-workspace"
     if not workspace_src.exists():
-        default_template_dir = get_default_template_dir()
-        workspace_src = default_template_dir / "subagent.code-workspace"
-        if not workspace_src.exists():
-            raise FileNotFoundError(f"Default workspace template not found: {workspace_src}")
+        raise FileNotFoundError(f"Default workspace template not found: {workspace_src}")
 
-    chatmode_dst = subagent_dir / "subagent.chatmode.md"
     workspace_dst = subagent_dir / "subagent.code-workspace"
-
-    transpile_skill(
-        agent_template_dir,
-        output_path=chatmode_dst,
-        workspace_root=workspace_root,
-    )
     shutil.copy2(workspace_src, workspace_dst)
 
     messages_dir = subagent_dir / "messages"
     messages_dir.mkdir(exist_ok=True)
 
     return {
-        "chatmode": str(chatmode_dst.resolve()),
         "workspace": str(workspace_dst.resolve()),
         "messages_dir": str(messages_dir.resolve()),
     }
@@ -186,7 +166,7 @@ def wait_for_response_output(
 
 def launch_agent(
     user_query: str,
-    agent_template_dir: Path,
+    prompt_file: Path,
     *,
     extra_attachments: Optional[Sequence[Path]] = None,
     dry_run: bool = False,
@@ -197,8 +177,7 @@ def launch_agent(
     
     Args:
         user_query: The user's input query for the agent.
-        agent_template_dir: Path to the agent configuration directory that
-            contains the chatmode and workspace files.
+        prompt_file: Path to a prompt file to copy to subagent and attach (e.g., vscode-expert.prompt.md).
         extra_attachments: Additional attachment paths that should be forwarded
             to the launched chat.
         dry_run: When True, report planned actions without launching VS Code.
@@ -210,12 +189,12 @@ def launch_agent(
         Exit code (0 for success, non-zero for failure)
     """
     try:
-        # Validate template directory
-        agent_template_dir = agent_template_dir.resolve()
-        if not agent_template_dir.is_dir():
-            raise FileNotFoundError(
-                f"Agent template not found: {agent_template_dir}"
-            )
+        # Validate prompt file
+        prompt_file = prompt_file.expanduser().resolve()
+        if not prompt_file.exists():
+            raise FileNotFoundError(f"Prompt file not found: {prompt_file}")
+        if not prompt_file.is_file():
+            raise ValueError(f"Prompt file must be a file, not a directory: {prompt_file}")
 
         # Get subagent root
         subagent_root = get_subagent_root()
@@ -230,16 +209,21 @@ def launch_agent(
             )
             return 1
         
-        # Copy agent configuration
+        # Copy agent configuration (default workspace)
         if not dry_run:
             try:
-                copy_agent_config(
-                    agent_template_dir,
-                    subagent_dir,
-                    workspace_root=workspace_root,
-                )
-            except (FileNotFoundError, SkillDefinitionError, SkillResolutionError) as error:
+                copy_agent_config(subagent_dir)
+            except FileNotFoundError as error:
                 print(f"error: {error}", file=sys.stderr)
+                return 1
+        
+        # Copy prompt file to subagent directory
+        if not dry_run:
+            try:
+                prompt_dst = subagent_dir / prompt_file.name
+                shutil.copy2(prompt_file, prompt_dst)
+            except OSError as e:
+                print(f"error: Failed to copy prompt file: {e}", file=sys.stderr)
                 return 1
         # Create subagent lock
         if not dry_run:
@@ -259,9 +243,10 @@ def launch_agent(
                     )
                 resolved_extra.append(str(resolved_attachment))
 
-        # Add the transpiled chatmode as an attachment
-        chatmode_path = subagent_dir / "subagent.chatmode.md"
-        attachment_paths: list[str] = [str(chatmode_path)] + resolved_extra
+        # Build attachment list with the copied prompt file
+        prompt_file_in_subagent = subagent_dir / prompt_file.name
+        attachment_paths: list[str] = [str(prompt_file_in_subagent)]
+        attachment_paths.extend(resolved_extra)
         
         # Generate timestamp for response file
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
@@ -451,12 +436,9 @@ def main() -> int:
         description="Launch an agent in an isolated subagent environment."
     )
     parser.add_argument(
-        "agent_config_path",
+        "prompt_file",
         type=Path,
-        help=(
-            "Path to the agent configuration directory (e.g., "
-            "'agents/glow-ctf')"
-        ),
+        help="Path to a prompt file to copy and attach (e.g., vscode-expert.prompt.md)",
     )
     parser.add_argument(
         "query",
@@ -485,7 +467,7 @@ def main() -> int:
     args = parser.parse_args()
     return launch_agent(
         args.query,
-        args.agent_config_path,
+        args.prompt_file,
         extra_attachments=args.attachment,
         dry_run=args.dry_run,
         wait=args.wait,
