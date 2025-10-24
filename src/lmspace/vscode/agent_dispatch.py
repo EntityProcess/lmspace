@@ -97,26 +97,53 @@ def check_workspace_opened(workspace_name: str) -> bool:
         return False
 
 
-def ensure_workspace_focused(workspace_path: Path, workspace_name: str, wait_time: float = 10.0) -> None:
+def ensure_workspace_focused(workspace_path: Path, workspace_name: str, subagent_dir: Path, poll_interval: float = 1.0, timeout: float = 60.0) -> bool:
     """Ensure VS Code workspace is open and focused.
     
-    Opens the workspace only if it's not already open, then waits and ensures focus.
+    Opens the workspace only if it's not already open, then waits for .alive file to signal readiness.
     
     Args:
         workspace_path: Path to the .code-workspace file
         workspace_name: Name of the workspace (e.g., 'subagent-1') for checking if open
-        wait_time: Time to wait after opening workspace (default: 10.0 seconds)
+        subagent_dir: Path to the subagent directory
+        poll_interval: Time between checks for .alive file (default: 1.0 seconds)
+        timeout: Maximum time to wait for .alive file (default: 60.0 seconds)
+    
+    Returns:
+        True if workspace is ready, False if timeout occurred
     """
     workspace_already_open = check_workspace_opened(workspace_name)
     
-    if not workspace_already_open:
-        # Open the workspace since it's not already open
+    if workspace_already_open:
+        # Workspace is already open, just focus it and return
         subprocess.Popen(f'code "{workspace_path}"', shell=True)
-        # Wait for workspace to load
-        time.sleep(wait_time)
+        return True
     
-    # Always ensure the workspace is focused by opening it again
+    # Workspace not open, need to open and wait for readiness
+    # Delete any existing .alive file first
+    alive_file = subagent_dir / ".alive"
+    if alive_file.exists():
+        alive_file.unlink()
+    
     subprocess.Popen(f'code "{workspace_path}"', shell=True)
+    time.sleep(0.1)  # Brief wait for VS Code to start
+    
+    # Use a unique chat_id for this readiness check
+    readiness_chat_id = str(uuid.uuid4())[:8]
+    chat_cmd = f'code -r chat -m {readiness_chat_id} "create a file named .alive"'
+    subprocess.Popen(chat_cmd, shell=True)
+    
+    # Wait for .alive file to appear
+    elapsed = 0.0
+    while not alive_file.exists() and elapsed < timeout:
+        time.sleep(poll_interval)
+        elapsed += poll_interval
+    
+    if not alive_file.exists():
+        print(f"warning: Workspace readiness timeout after {timeout}s", file=sys.stderr)
+        return False
+    
+    return True
 
 
 def copy_agent_config(
@@ -322,8 +349,10 @@ def _launch_vscode_with_chat(
         # Add a simple prompt that references the req.md file
         chat_cmd += f' "Follow instructions in {req_file.name}"'
 
-        # Ensure workspace is open and focused
-        ensure_workspace_focused(workspace_path, subagent_dir.name)
+        # Ensure workspace is open and focused (with .alive file check)
+        workspace_ready = ensure_workspace_focused(workspace_path, subagent_dir.name, subagent_dir)
+        if not workspace_ready:
+            print("warning: Workspace may not be fully ready", file=sys.stderr)
         
         # Open the chat in VS Code
         subprocess.Popen(chat_cmd, shell=True)
