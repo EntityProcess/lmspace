@@ -215,7 +215,7 @@ def unlock_subagents(
     *,
     target_root: Path,
     lock_name: str,
-    subagent_number: int | None = None,
+    subagent_name: str | None = None,
     unlock_all: bool = False,
     dry_run: bool = False,
 ) -> List[Path]:
@@ -224,7 +224,7 @@ def unlock_subagents(
     Args:
         target_root: Root directory containing subagent directories
         lock_name: Name of the lock file to remove
-        subagent_number: Specific subagent number to unlock (e.g., 1 for subagent-1)
+        subagent_name: Specific subagent folder name to unlock (e.g., subagent-1)
         unlock_all: If True, unlock all subagents
         dry_run: If True, show what would be done without making changes
     
@@ -232,10 +232,10 @@ def unlock_subagents(
         List of paths to subagent directories that were unlocked
     
     Raises:
-        ValueError: If neither subagent_number nor unlock_all is specified,
+        ValueError: If neither subagent_name nor unlock_all is specified,
                     or if both are specified, or if the subagent doesn't exist
     """
-    if (subagent_number is None and not unlock_all) or (subagent_number is not None and unlock_all):
+    if (subagent_name is None and not unlock_all) or (subagent_name is not None and unlock_all):
         raise ValueError("must specify either --subagent or --all (but not both)")
     
     target_path = target_root.expanduser().resolve()
@@ -260,10 +260,10 @@ def unlock_subagents(
                 unlocked.append(subagent_dir)
     else:
         # Unlock specific subagent
-        subagent_dir = target_path / f"subagent-{subagent_number}"
+        subagent_dir = target_path / subagent_name
         
         if not subagent_dir.exists():
-            raise ValueError(f"subagent-{subagent_number} does not exist in {target_path}")
+            raise ValueError(f"{subagent_name} does not exist in {target_path}")
         
         lock_file = subagent_dir / lock_name
         if lock_file.exists():

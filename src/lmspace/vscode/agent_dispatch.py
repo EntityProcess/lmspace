@@ -304,7 +304,7 @@ def _create_request_prompt(
     user_query: str,
     response_file_tmp: Path,
     response_file_final: Path,
-    lock_file: Path,
+    subagent_name: str,
 ) -> str:
     """Create the SudoLang prompt with task and system instructions."""
     return f"""[[ ## task ## ]]
@@ -315,8 +315,10 @@ def _create_request_prompt(
 **IMPORTANT**: Follow these exact steps:
 1. Create and write your complete response to: {response_file_tmp}
 2. When completely finished, run these PowerShell commands to signal completion:
-   Move-Item -LiteralPath '{response_file_tmp}' -Destination '{response_file_final}'
-   Remove-Item -LiteralPath '{lock_file}' -Force
+```
+Move-Item -LiteralPath '{response_file_tmp}' -Destination '{response_file_final}'
+lmspace code unlock --subagent {subagent_name}
+```
 
 Do not proceed to step 2 until your response is completely written to the temporary file.
 """
@@ -429,10 +431,9 @@ def dispatch_agent(
         messages_dir = subagent_dir / "messages"
         response_file_tmp = messages_dir / f"{timestamp}_res.tmp.md"
         response_file_final = messages_dir / f"{timestamp}_res.md"
-        lock_file = subagent_dir / DEFAULT_LOCK_NAME
         
         sudolang_prompt = _create_request_prompt(
-            user_query, response_file_tmp, response_file_final, lock_file
+            user_query, response_file_tmp, response_file_final, subagent_dir.name
         )
         
         # Report the dispatched subagent

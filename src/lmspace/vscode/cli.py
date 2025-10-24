@@ -156,9 +156,9 @@ def add_unlock_parser(subparsers: Any) -> None:
     )
     parser.add_argument(
         "--subagent",
-        type=int,
+        type=str,
         default=None,
-        help="Subagent number to unlock (e.g., 1 for subagent-1).",
+        help="Subagent name to unlock (e.g., subagent-1).",
     )
     parser.add_argument(
         "--all",
@@ -276,7 +276,7 @@ def handle_unlock(args: argparse.Namespace) -> int:
         unlocked = unlock_subagents(
             target_root=args.target_root,
             lock_name=args.lock_name,
-            subagent_number=args.subagent,
+            subagent_name=args.subagent,
             unlock_all=args.unlock_all,
             dry_run=args.dry_run,
         )
@@ -292,7 +292,7 @@ def handle_unlock(args: argparse.Namespace) -> int:
         if args.unlock_all:
             print("no locked subagents found")
         else:
-            print(f"subagent-{args.subagent} was not locked")
+            print(f"subagent '{args.subagent}' was not locked")
     
     if args.dry_run:
         print("dry run complete; no changes were made")
