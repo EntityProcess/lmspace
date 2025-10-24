@@ -9,16 +9,19 @@ Execute subagent queries with intelligent parallelization.
 ## Configuration
 
 ```
-agentName = "${AGENT_NAME}"
 initialWaitInterval = 30  // seconds (first wait)
 subsequentWaitInterval = 15  // seconds (subsequent waits)
+```
+
+**Import syntax example**:
+```
+import { convertDocumentToImage } from "docx-skill.md"
 ```
 
 ## Constraints
 
 * Prefer #runSubagent tool when available
 * When #runSubagent NOT available, use lmspace CLI executor
-* Locate agent directory via fileSearch(`**/agents/${agentName}`)
 * Analyze query dependencies, parallelize independent queries
 * Wait for all queries in a group before reading results
 
@@ -32,16 +35,10 @@ Choose execution strategy based on tool availability.
 
 **When to use**: #runSubagent tool is available in your toolkit
 
-**What to load upfront**:
-1. Read `SUBAGENT.md` from agent directory
-2. Run `lmspace code skills "<agent_path>"` to get skill paths (returns JSON array)
-
-**How to execute each query**:
-* Call #runSubagent tool with:
-  - subagentMd content
-  - skillPaths array
-  - query string
-* DO NOT read skill file contents (subagent loads them independently)
+**What to pass to subagent**:
+1. Primary instruction
+2. Import file paths
+4. DO NOT read file contents yourself
 
 ---
 
@@ -49,16 +46,12 @@ Choose execution strategy based on tool availability.
 
 **When to use**: #runSubagent tool is NOT available
 
-**What to load upfront**:
-* Nothing - go directly to dispatching queries
-
 **How to execute each query**:
 
 1. **Dispatch** - Run in background terminal:
    ```
-   lmspace code chat "<agent_path>" "<query>"
+   lmspace code chat "<primary_instruction_path>" "<query>"
    ```
-   * OMIT -w flag (lmspace writes to file automatically)
    * Set isBackground=true
    * Capture JSON response with `response_file` field
 
@@ -80,32 +73,46 @@ Choose execution strategy based on tool availability.
 # Execution Flow
 
 ```
-// 1. Find agent
-agentPath = findAgentPath(agentName)
+// 1. Identify primary instruction path (not the content, just the path)
+// Search for files ending in .prompt.md or .instructions.md
+primaryInstructionPath = findFiles("**/*.prompt.md", "**/*.instructions.md")
+  |> selectRelevantPrompt(userContext)
 
-// 2. Choose strategy (do NOT execute yet, just choose)
-if (#runSubagent available) {
-  strategy = "runSubagent"
-  subagentMd = read(agentPath + "/SUBAGENT.md")
-  skillPaths = run(`lmspace code skills "${agentPath}"`) |> parseJSON
-} else {
-  strategy = "lmspaceCLI"
-  // No upfront loading needed
+// If no relevant prompt found, dynamically generate instructions
+if (primaryInstructionPath == null) {
+  primaryInstructionPath = generateDynamicInstructions(userContext)
 }
 
-// 3. Parse and group queries
+// 2. Extract import paths only
+importPaths = extractImportPaths(primaryInstructionPath)
+// Only include paths from import statements, not attachments
+
+// 3. Choose strategy (do NOT execute yet, just choose)
+if (#runSubagent available) {
+  strategy = "runSubagent"
+} else {
+  strategy = "lmspaceCLI"
+}
+
+// 4. Parse and group queries
 queryGroups = parseQueries(userInput) |> analyzeQueryDependencies
 
-// 4. Execute each group
+// 5. Execute each group
 isFirstWait = true
 for each group in queryGroups {
   
   // Dispatch all queries in parallel
   dispatches = for each query in group {
+    // Build file paths list (primary instruction + imports)
+    allFilePaths = [...importPaths]
+    
+    // Augment query with file paths
+    augmentedQuery = query + "\n\nFile paths to read: " + allFilePaths.join(", ")
+    
     if (strategy == "runSubagent") {
-      call runSubagent(subagentMd, skillPaths, query)
+      call runSubagent(augmentedQuery)  // Subagent will read all file paths
     } else {
-      run(`lmspace code chat "${agentPath}" "${query}"`, isBackground=true)
+      run(`lmspace code chat "${primaryInstructionPath}" "${augmentedQuery}"`, isBackground=true)
       |> extract(response_file)
     }
   }
