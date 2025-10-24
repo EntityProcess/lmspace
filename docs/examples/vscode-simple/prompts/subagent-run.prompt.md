@@ -13,14 +13,10 @@ initialWaitInterval = 30  // seconds (first wait)
 subsequentWaitInterval = 15  // seconds (subsequent waits)
 ```
 
-**Import syntax example**:
-```
-import { convertDocumentToImage } from "docx-skill.md"
-```
-
 ## Constraints
 
-* **NEVER read import file contents in main agent context** - pass paths only
+* **Read ONLY the primary instruction file** to extract import paths - the subagent will read all files internally
+* **NEVER read imported files** (context.md, skill.md, etc.) - only collect their paths
 * Prefer #runSubagent tool when available
 * When #runSubagent NOT available, use lmspace CLI executor
 * Analyze query dependencies, parallelize independent queries
@@ -35,11 +31,6 @@ Choose execution strategy based on tool availability.
 ### Strategy 1: RunSubagent Tool (Preferred)
 
 Use when #runSubagent tool is available.
-
-**CRITICAL**: Pass file PATHS only (do NOT read file contents). The subagent will read files internally.
-
-**What to pass**: Array of absolute path strings (e.g., `["/path/to/skill.md"]`)
-**What NOT to do**: Read files, pass file contents, or attach file contents
 
 Example: `runSubagent(query, files=importPaths)` where `importPaths = ["/path/to/skill.md", "/path/to/context.md"]`
 
@@ -61,18 +52,22 @@ lmspace code chat "<primary_instruction_path>" "<query>" -a "<import_path_1>" -a
 # Execution Flow
 
 ```
+import { resolveAllImports } from #file:import-parser.prompt.md
+
 // Inferred functions
 fn findRelevantPrompt;
-fn extractImportPaths;
 fn analyzeQueryDependencies;
 fn provisionSubagent;
 fn dispatchQuery;
 fn readResult;
 
-// Resolve instruction & imports (paths only, do NOT read contents)
+// Find primary instruction file
 primaryInstructionPath = findRelevantPrompt(userContext, "**/*.prompt.md")
   |> default(generateDynamicInstructions(userContext))
-importPaths = extractImportPaths(primaryInstructionPath)  // Returns array of file paths as strings
+
+// Extract import paths from primary instruction (read ONLY this file to parse imports)
+// DO NOT read the imported files themselves - only collect their paths
+importPaths = resolveAllImports(primaryInstructionPath)
 
 // Determine strategy & build query groups
 strategy = if (#runSubagent available) "runSubagent" else "lmspaceCLI"
@@ -88,13 +83,16 @@ for each group in queryGroups {
       case "runSubagent" => 
         runSubagent(query, files=importPaths)
       
-      case "lmspaceCLI" =>
-        dispatchQuery(primaryInstructionPath, query, importPaths)
+      case "lmspaceCLI" => {
+        // Build lmspace command with ALL import paths as -a arguments
+        command = buildLmspaceCommand(primaryInstructionPath, query, importPaths)
+        dispatchQuery(command)
           |> onError("No unlocked subagents") => {
             provisionSubagent()
-            retry(dispatchQuery)
+            retry(dispatchQuery(command))
           }
           |> onError => emit("Error: $error") |> continue
+      }
     }
   }
   
@@ -110,5 +108,15 @@ for each group in queryGroups {
     result = readResult(dispatch, strategy)
     emit(result)
   }
+}
+
+// Helper function to build lmspace command with all imports
+buildLmspaceCommand(instructionPath, query, importPaths) {
+  baseCommand = "lmspace code chat \"$instructionPath\" \"$query\""
+  attachmentArgs = for each path in importPaths {
+    "-a \"$path\""
+  } |> join(" ")
+  
+  return "$baseCommand $attachmentArgs"
 }
 ```
