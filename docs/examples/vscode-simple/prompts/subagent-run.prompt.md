@@ -20,6 +20,7 @@ import { convertDocumentToImage } from "docx-skill.md"
 
 ## Constraints
 
+* **NEVER read import file contents in main agent context** - pass paths only
 * Prefer #runSubagent tool when available
 * When #runSubagent NOT available, use lmspace CLI executor
 * Analyze query dependencies, parallelize independent queries
@@ -33,7 +34,14 @@ Choose execution strategy based on tool availability.
 
 ### Strategy 1: RunSubagent Tool (Preferred)
 
-Use when #runSubagent tool is available. Pass query with file paths; let subagent read contents.
+Use when #runSubagent tool is available.
+
+**CRITICAL**: Pass file PATHS only (do NOT read file contents). The subagent will read files internally.
+
+**What to pass**: Array of absolute path strings (e.g., `["/path/to/skill.md"]`)
+**What NOT to do**: Read files, pass file contents, or attach file contents
+
+Example: `runSubagent(query, files=importPaths)` where `importPaths = ["/path/to/skill.md", "/path/to/context.md"]`
 
 ### Strategy 2: Lmspace CLI Executor (Fallback)
 
@@ -57,25 +65,20 @@ lmspace code chat "<primary_instruction_path>" "<query>" -a "<import_path_1>" -a
 fn findRelevantPrompt;
 fn extractImportPaths;
 fn analyzeQueryDependencies;
-fn formatAttachmentFlags;
 fn provisionSubagent;
 fn dispatchQuery;
 fn readResult;
 
-// 1. Resolve primary instruction
+// Resolve instruction & imports (paths only, do NOT read contents)
 primaryInstructionPath = findRelevantPrompt(userContext, "**/*.prompt.md")
   |> default(generateDynamicInstructions(userContext))
+importPaths = extractImportPaths(primaryInstructionPath)  // Returns array of file paths as strings
 
-// 2. Extract imports
-importPaths = extractImportPaths(primaryInstructionPath)
-
-// 3. Determine strategy
+// Determine strategy & build query groups
 strategy = if (#runSubagent available) "runSubagent" else "lmspaceCLI"
-
-// 4. Build query groups
 queryGroups = parseQueries(userInput) |> analyzeQueryDependencies
 
-// 5. Execute groups with parallelization
+// Execute groups with parallelization
 isFirstWait = true
 for each group in queryGroups {
   
