@@ -124,13 +124,19 @@ def ensure_workspace_focused(workspace_path: Path, workspace_name: str, subagent
     alive_file = subagent_dir / ".alive"
     if alive_file.exists():
         alive_file.unlink()
-    
+
+    # Copy wakeup.chatmode.md if it exists in the template
+    wakeup_src = get_default_template_dir() / "wakeup.chatmode.md"
+    if wakeup_src.exists():
+        wakeup_dst = subagent_dir / "wakeup.chatmode.md"
+        shutil.copy2(wakeup_src, wakeup_dst)
+
     subprocess.Popen(f'code "{workspace_path}"', shell=True)
     time.sleep(0.1)  # Brief wait for VS Code to start
     
     # Use a unique chat_id for this readiness check
-    readiness_chat_id = str(uuid.uuid4())[:8]
-    chat_cmd = f'code -r chat -m {readiness_chat_id} "create a file named .alive"'
+    wakeup_chat_id = "wakeup"
+    chat_cmd = f'code -r chat -m {wakeup_chat_id} "create a file named .alive"'
     subprocess.Popen(chat_cmd, shell=True)
     
     # Wait for .alive file to appear

@@ -56,10 +56,6 @@ uv pip install -e .[dev]
    ```
    This blocks until the agent completes and prints the response to stdout.
 
-3. **Example agent configuration** (`my-agent/` directory):
-   - `SUBAGENT.md` - Authoritative chat mode definition; runtime launches transpile to `subagent.chatmode.md`
-   - `subagent.code-workspace` - VS Code workspace settings
-
 ### Command Reference
 
 **Provision subagents**:
