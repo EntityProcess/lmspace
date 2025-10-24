@@ -11,7 +11,7 @@ import pytest
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from lmspace.vscode.launch_agent import (
+from lmspace.vscode.agent_dispatch import (
     get_all_subagent_workspaces,
     warmup_subagents,
 )
@@ -36,7 +36,7 @@ def test_get_all_subagent_workspaces_with_workspaces(tmp_path: Path) -> None:
     for i in [1, 3, 2]:  # Out of order to test sorting
         subagent_dir = tmp_path / f"subagent-{i}"
         subagent_dir.mkdir()
-        workspace_file = subagent_dir / "subagent.code-workspace"
+        workspace_file = subagent_dir / f"subagent-{i}.code-workspace"
         workspace_file.write_text("{}", encoding="utf-8")
     
     # Create a directory that shouldn't be picked up
@@ -75,7 +75,7 @@ def test_warmup_subagents_dry_run(mock_popen: MagicMock, tmp_path: Path) -> None
     # Create subagent with workspace
     subagent_dir = tmp_path / "subagent-1"
     subagent_dir.mkdir()
-    workspace_file = subagent_dir / "subagent.code-workspace"
+    workspace_file = subagent_dir / "subagent-1.code-workspace"
     workspace_file.write_text("{}", encoding="utf-8")
     
     result = warmup_subagents(subagent_root=tmp_path, dry_run=True)
@@ -94,7 +94,7 @@ def test_warmup_subagents_opens_workspaces(
     for i in [1, 2, 3]:
         subagent_dir = tmp_path / f"subagent-{i}"
         subagent_dir.mkdir()
-        workspace_file = subagent_dir / "subagent.code-workspace"
+        workspace_file = subagent_dir / f"subagent-{i}.code-workspace"
         workspace_file.write_text("{}", encoding="utf-8")
     
     result = warmup_subagents(subagent_root=tmp_path, subagents=3)
@@ -112,7 +112,7 @@ def test_warmup_subagents_handles_errors(
     # Create subagent with workspace
     subagent_dir = tmp_path / "subagent-1"
     subagent_dir.mkdir()
-    workspace_file = subagent_dir / "subagent.code-workspace"
+    workspace_file = subagent_dir / "subagent-1.code-workspace"
     workspace_file.write_text("{}", encoding="utf-8")
     
     # Should complete despite the error
@@ -131,7 +131,7 @@ def test_warmup_subagents_respects_count_limit(
     for i in [1, 2, 3, 4, 5]:
         subagent_dir = tmp_path / f"subagent-{i}"
         subagent_dir.mkdir()
-        workspace_file = subagent_dir / "subagent.code-workspace"
+        workspace_file = subagent_dir / f"subagent-{i}.code-workspace"
         workspace_file.write_text("{}", encoding="utf-8")
     
     # Only open 2
@@ -151,7 +151,7 @@ def test_warmup_subagents_default_opens_one(
     for i in [1, 2, 3]:
         subagent_dir = tmp_path / f"subagent-{i}"
         subagent_dir.mkdir()
-        workspace_file = subagent_dir / "subagent.code-workspace"
+        workspace_file = subagent_dir / f"subagent-{i}.code-workspace"
         workspace_file.write_text("{}", encoding="utf-8")
     
     # Don't specify subagents parameter (should default to 1)

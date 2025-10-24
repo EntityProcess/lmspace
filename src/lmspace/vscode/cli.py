@@ -9,12 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from .provision import provision_subagents, DEFAULT_TEMPLATE_DIR, DEFAULT_LOCK_NAME
-from .launch_agent import launch_agent, warmup_subagents, get_subagent_root
-from .transpiler import (
-    SkillResolutionError,
-    SubagentDefinitionError,
-    transpile_subagent,
-)
+from .agent_dispatch import dispatch_agent, warmup_subagents, list_subagents, get_subagent_root
 
 def add_provision_parser(subparsers: Any) -> None:
     """Add the 'provision' subcommand parser."""
@@ -61,7 +56,7 @@ def add_provision_parser(subparsers: Any) -> None:
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Overwrite unlocked subagent directories even if they already exist.",
+        help="Unlock and overwrite all subagent directories regardless of lock status.",
     )
     parser.add_argument(
         "--dry-run",
@@ -86,12 +81,9 @@ def add_chat_parser(subparsers: Any) -> None:
         description="Start a chat with an agent in an isolated subagent environment.",
     )
     parser.add_argument(
-        "agent_config_path",
+        "prompt_file",
         type=Path,
-        help=(
-            "Path to the agent configuration directory (e.g., "
-            "'agents/glow-ctf')"
-        ),
+        help="Path to a prompt file to copy and attach (e.g., vscode-expert.prompt.md)",
     )
     parser.add_argument(
         "query",
@@ -105,14 +97,6 @@ def add_chat_parser(subparsers: Any) -> None:
         help=(
             "Additional attachment to forward to the chat. "
             "Repeat for multiple attachments."
-        ),
-    )
-    parser.add_argument(
-        "--workspace-root",
-        type=Path,
-        default=None,
-        help=(
-            "Optional workspace root whose contexts/ directory is checked after the agent's contexts."
         ),
     )
     parser.add_argument(
@@ -159,6 +143,32 @@ def add_warmup_parser(subparsers: Any) -> None:
     )
 
 
+def add_list_parser(subparsers: Any) -> None:
+    """Add the 'list' subcommand parser."""
+    parser = subparsers.add_parser(
+        "list",
+        help="List all provisioned subagents and their status",
+        description=(
+            "Display information about all provisioned subagent workspaces, "
+            "including their locked/available status and paths."
+        ),
+    )
+    parser.add_argument(
+        "--target-root",
+        type=Path,
+        default=None,
+        help=(
+            "Root directory containing subagents. Defaults to "
+            "~/.lmspace/vscode-agents."
+        ),
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output results as JSON.",
+    )
+
+
 def add_unlock_parser(subparsers: Any) -> None:
     """Add the 'unlock' subcommand parser."""
     parser = subparsers.add_parser(
@@ -172,9 +182,9 @@ def add_unlock_parser(subparsers: Any) -> None:
     )
     parser.add_argument(
         "--subagent",
-        type=int,
+        type=str,
         default=None,
-        help="Subagent number to unlock (e.g., 1 for subagent-1).",
+        help="Subagent name to unlock (e.g., subagent-1).",
     )
     parser.add_argument(
         "--all",
@@ -265,13 +275,12 @@ def handle_provision(args: argparse.Namespace) -> int:
 
 def handle_chat(args: argparse.Namespace) -> int:
     """Handle the 'chat' subcommand."""
-    return launch_agent(
+    return dispatch_agent(
         args.query,
-        args.agent_config_path,
+        args.prompt_file,
         extra_attachments=args.attachment,
         dry_run=args.dry_run,
         wait=args.wait,
-        workspace_root=args.workspace_root,
     )
 
 
@@ -285,6 +294,15 @@ def handle_warmup(args: argparse.Namespace) -> int:
     )
 
 
+def handle_list(args: argparse.Namespace) -> int:
+    """Handle the 'list' subcommand."""
+    subagent_root = args.target_root if args.target_root else get_subagent_root()
+    return list_subagents(
+        subagent_root=subagent_root,
+        json_output=args.json,
+    )
+
+
 def handle_unlock(args: argparse.Namespace) -> int:
     """Handle the 'unlock' subcommand."""
     from .provision import unlock_subagents
@@ -293,7 +311,7 @@ def handle_unlock(args: argparse.Namespace) -> int:
         unlocked = unlock_subagents(
             target_root=args.target_root,
             lock_name=args.lock_name,
-            subagent_number=args.subagent,
+            subagent_name=args.subagent,
             unlock_all=args.unlock_all,
             dry_run=args.dry_run,
         )
@@ -309,129 +327,9 @@ def handle_unlock(args: argparse.Namespace) -> int:
         if args.unlock_all:
             print("no locked subagents found")
         else:
-            print(f"subagent-{args.subagent} was not locked")
+            print(f"subagent '{args.subagent}' was not locked")
     
     if args.dry_run:
         print("dry run complete; no changes were made")
     
     return 0
-
-
-def add_transpile_parser(subparsers: Any) -> None:
-    """Add the 'transpile' subcommand parser."""
-    parser = subparsers.add_parser(
-        "transpile",
-        help="Generate a chatmode file from SUBAGENT.md",
-        description=(
-            "Compose subagent.chatmode.md from SUBAGENT.md and optional "
-            "skill snippets."
-        ),
-    )
-    parser.add_argument(
-        "agent_config_path",
-        type=Path,
-        help="Path to the agent configuration directory containing SUBAGENT.md",
-    )
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=None,
-        help=(
-            "Optional path for the generated chatmode file. Defaults to "
-            "<agent>/subagent.chatmode.md."
-        ),
-    )
-    parser.add_argument(
-        "--workspace-root",
-        type=Path,
-        default=None,
-        help=(
-            "Optional workspace root whose contexts/ directory is searched "
-            "after the agent for skill snippets."
-        ),
-    )
-
-
-def handle_transpile(args: argparse.Namespace) -> int:
-    """Handle the 'transpile' subcommand."""
-    try:
-        output_path = transpile_subagent(
-            args.agent_config_path,
-            output_path=args.output,
-            workspace_root=args.workspace_root,
-        )
-    except (FileNotFoundError, SubagentDefinitionError, SkillResolutionError) as error:
-        print(f"error: {error}", file=sys.stderr)
-        return 1
-
-    print(f"generated chatmode: {output_path}")
-    return 0
-
-
-def add_skills_parser(subparsers: Any) -> None:
-    """Add the 'skills' subcommand parser."""
-    parser = subparsers.add_parser(
-        "skills",
-        help="Resolve skill file paths for an agent",
-        description=(
-            "Read SUBAGENT.md frontmatter and resolve skill file paths. "
-            "Returns JSON array of absolute paths."
-        ),
-    )
-    parser.add_argument(
-        "agent_config_path",
-        type=Path,
-        help="Path to the agent configuration directory containing SUBAGENT.md",
-    )
-    parser.add_argument(
-        "--workspace-root",
-        type=Path,
-        default=None,
-        help=(
-            "Optional workspace root whose contexts/ directory is searched "
-            "for skill files."
-        ),
-    )
-
-
-def handle_skills(args: argparse.Namespace) -> int:
-    """Handle the 'skills' subcommand."""
-    from .transpiler import (
-        _load_subagent_definition,
-        _get_skill_search_locations,
-        SkillResolutionError,
-    )
-    
-    try:
-        agent_dir = args.agent_config_path.resolve()
-        _, _, skills, _ = _load_subagent_definition(agent_dir)
-        
-        skill_paths = []
-        for skill in skills:
-            locations_to_check = _get_skill_search_locations(
-                skill,
-                agent_dir=agent_dir,
-                workspace_root=args.workspace_root,
-            )
-            
-            # Find first existing path
-            found = None
-            for path in locations_to_check:
-                if path.exists():
-                    found = str(path.resolve())
-                    break
-            
-            if found:
-                skill_paths.append(found)
-            else:
-                raise SkillResolutionError(skill, locations_to_check)
-        
-        # Output JSON array
-        print(json.dumps(skill_paths))
-        return 0
-        
-    except (FileNotFoundError, SubagentDefinitionError, SkillResolutionError) as error:
-        print(f"error: {error}", file=sys.stderr)
-        return 1
-
-

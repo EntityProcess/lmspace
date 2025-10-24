@@ -16,7 +16,6 @@ def template_dir(tmp_path: Path) -> Path:
     """Create a minimal template directory."""
     template = tmp_path / "template"
     template.mkdir()
-    (template / "subagent.chatmode.md").write_text("# Test chatmode\n")
     (template / "subagent.code-workspace").write_text("{}\n")
     return template
 
@@ -46,8 +45,7 @@ def test_provision_single_subagent(template_dir: Path, target_root: Path) -> Non
 
     subagent_dir = target_root / "subagent-1"
     assert subagent_dir.exists()
-    assert (subagent_dir / "subagent.chatmode.md").exists()
-    assert (subagent_dir / "subagent.code-workspace").exists()
+    assert (subagent_dir / "subagent-1.code-workspace").exists()
 
 
 def test_provision_multiple_subagents(template_dir: Path, target_root: Path) -> None:
@@ -98,7 +96,7 @@ def test_provision_skip_existing(template_dir: Path, target_root: Path) -> None:
 
 
 def test_provision_skip_locked(template_dir: Path, target_root: Path) -> None:
-    """Test that locked subagents are overridden with --force."""
+    """Test that locked subagents are skipped without --force."""
     # Create initial subagent
     provision_subagents(
         template=template_dir,
@@ -113,32 +111,31 @@ def test_provision_skip_locked(template_dir: Path, target_root: Path) -> None:
     lock_file = target_root / "subagent-1" / DEFAULT_LOCK_NAME
     lock_file.touch()
 
-    # Request 1 unlocked subagent with force=True - should overwrite subagent-1 and create subagent-2
+    # Request 1 unlocked subagent without force - should skip subagent-1 and create subagent-2
     created, skipped_existing, skipped_locked = provision_subagents(
         template=template_dir,
         target_root=target_root,
         subagents=1,
         lock_name=DEFAULT_LOCK_NAME,
-        force=True,
+        force=False,
         dry_run=False,
     )
 
-    assert len(created) == 2  # subagent-1 (overwritten) and subagent-2 (newly created)
+    assert len(created) == 1  # subagent-2 (newly created)
     assert len(skipped_existing) == 0
-    assert len(skipped_locked) == 1  # subagent-1 was locked before overwriting
+    assert len(skipped_locked) == 1  # subagent-1 was skipped
     
     # Both should exist
     assert (target_root / "subagent-1").exists()
     assert (target_root / "subagent-2").exists()
     # Template files should exist
-    assert (target_root / "subagent-1" / "subagent.chatmode.md").exists()
-    assert (target_root / "subagent-1" / "subagent.code-workspace").exists()
-    # Lock file still exists (we don't delete files, just overwrite template files)
+    assert (target_root / "subagent-2" / "subagent-2.code-workspace").exists()
+    # Lock file still exists
     assert lock_file.exists()
 
 
 def test_provision_force_unlocked(template_dir: Path, target_root: Path) -> None:
-    """Test that unlocked subagents are rebuilt with --force."""
+    """Test that unlocked subagents are overwritten with --force."""
     # Create initial subagent
     provision_subagents(
         template=template_dir,
@@ -151,9 +148,9 @@ def test_provision_force_unlocked(template_dir: Path, target_root: Path) -> None
 
     # Add a marker file
     marker = target_root / "subagent-1" / "marker.txt"
-    marker.write_text("should be deleted")
+    marker.write_text("should remain")
 
-    # Provision with force
+    # Provision with force - unlocked subagents are overwritten
     created, skipped_existing, skipped_locked = provision_subagents(
         template=template_dir,
         target_root=target_root,
@@ -169,9 +166,51 @@ def test_provision_force_unlocked(template_dir: Path, target_root: Path) -> None
 
     # Marker file remains (we don't delete files, just overwrite template files)
     assert marker.exists()
+    # Template files should still exist
+    assert (target_root / "subagent-1" / "subagent-1.code-workspace").exists()
+
+
+def test_provision_force_locked(template_dir: Path, target_root: Path) -> None:
+    """Test that locked subagents are unlocked and overwritten with --force."""
+    # Create 2 initial subagents
+    provision_subagents(
+        template=template_dir,
+        target_root=target_root,
+        subagents=2,
+        lock_name=DEFAULT_LOCK_NAME,
+        force=False,
+        dry_run=False,
+    )
+
+    # Lock both subagents
+    lock_file_1 = target_root / "subagent-1" / DEFAULT_LOCK_NAME
+    lock_file_2 = target_root / "subagent-2" / DEFAULT_LOCK_NAME
+    lock_file_1.touch()
+    lock_file_2.touch()
+
+    # Request 2 subagents with force=True - should unlock and reuse both locked subagents
+    created, skipped_existing, skipped_locked = provision_subagents(
+        template=template_dir,
+        target_root=target_root,
+        subagents=2,
+        lock_name=DEFAULT_LOCK_NAME,
+        force=True,
+        dry_run=False,
+    )
+
+    assert len(created) == 2  # Both locked subagents were unlocked and overwritten
+    assert len(skipped_existing) == 0
+    assert len(skipped_locked) == 0  # No locked subagents remain
+    
+    # Both should exist
+    assert (target_root / "subagent-1").exists()
+    assert (target_root / "subagent-2").exists()
     # Template files should exist
-    assert (target_root / "subagent-1" / "subagent.chatmode.md").exists()
-    assert (target_root / "subagent-1" / "subagent.code-workspace").exists()
+    assert (target_root / "subagent-1" / "subagent-1.code-workspace").exists()
+    assert (target_root / "subagent-2" / "subagent-2.code-workspace").exists()
+    # Lock files should be removed
+    assert not lock_file_1.exists()
+    assert not lock_file_2.exists()
 
 
 def test_provision_dry_run(template_dir: Path, target_root: Path) -> None:
@@ -360,6 +399,53 @@ def test_handle_provision_skips_warmup_during_dry_run(
     assert result == 0
 
 
+def test_provision_force_mixed_locked_unlocked(
+    template_dir: Path,
+    target_root: Path,
+) -> None:
+    """Test --force with a mix of locked and unlocked subagents."""
+    # Create 4 initial subagents
+    provision_subagents(
+        template=template_dir,
+        target_root=target_root,
+        subagents=4,
+        lock_name=DEFAULT_LOCK_NAME,
+        force=False,
+        dry_run=False,
+    )
+
+    # Lock subagent-1 and subagent-2, leave subagent-3 and subagent-4 unlocked
+    lock_file_1 = target_root / "subagent-1" / DEFAULT_LOCK_NAME
+    lock_file_2 = target_root / "subagent-2" / DEFAULT_LOCK_NAME
+    lock_file_1.touch()
+    lock_file_2.touch()
+
+    # Request 2 subagents with force=True - should overwrite the first 2
+    # (regardless of lock status)
+    created, skipped_existing, skipped_locked = provision_subagents(
+        template=template_dir,
+        target_root=target_root,
+        subagents=2,
+        lock_name=DEFAULT_LOCK_NAME,
+        force=True,
+        dry_run=False,
+    )
+
+    assert len(created) == 2  # subagent-1 and subagent-2 (both overwritten)
+    assert len(skipped_existing) == 0  # None skipped
+    assert len(skipped_locked) == 0  # No locked subagents remain
+    
+    # All should exist
+    assert (target_root / "subagent-1").exists()
+    assert (target_root / "subagent-2").exists()
+    assert (target_root / "subagent-3").exists()
+    assert (target_root / "subagent-4").exists()
+    
+    # Lock files should be removed from the ones that were locked
+    assert not lock_file_1.exists()
+    assert not lock_file_2.exists()
+
+
 def test_provision_force_dir_in_use(
     template_dir: Path,
     target_root: Path,
@@ -372,6 +458,10 @@ def test_provision_force_dir_in_use(
     # Add an extra file that should remain after provisioning
     extra_file = subagent_dir / "extra-file.txt"
     extra_file.write_text("content")
+    
+    # Add a lock file
+    lock_file = subagent_dir / DEFAULT_LOCK_NAME
+    lock_file.touch()
 
     # Provision with force - should succeed by copying template files
     created, skipped_existing, skipped_locked = provision_subagents(
@@ -386,7 +476,8 @@ def test_provision_force_dir_in_use(
     # Should have successfully provisioned the subagent
     assert len(created) == 1
     assert created[0] == subagent_dir
-    assert (subagent_dir / "subagent.chatmode.md").exists()
-    assert (subagent_dir / "subagent.code-workspace").exists()
+    assert (subagent_dir / "subagent-1.code-workspace").exists()
     # Extra file should still exist (we don't delete, just overwrite template files)
     assert extra_file.exists()
+    # Lock file should be removed
+    assert not lock_file.exists()
