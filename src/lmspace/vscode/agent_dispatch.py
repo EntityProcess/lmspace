@@ -72,6 +72,53 @@ def find_unlocked_subagent(subagent_root: Path) -> Optional[Path]:
     return None
 
 
+def check_workspace_opened(workspace_name: str) -> bool:
+    """Check if a workspace is currently opened in VS Code.
+    
+    Args:
+        workspace_name: Name to search for in workspace list (e.g., 'subagent-1')
+    
+    Returns:
+        True if the workspace is currently open, False otherwise
+    """
+    try:
+        result = subprocess.run(
+            'code --status',
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        # Look for the workspace name in the output
+        # Format in output: "window [...] (workspace_name (Workspace) - Visual Studio Code)"
+        return workspace_name in result.stdout
+    except Exception:
+        # If we can't determine, assume it's not open (safer to open)
+        return False
+
+
+def ensure_workspace_focused(workspace_path: Path, workspace_name: str, wait_time: float = 10.0) -> None:
+    """Ensure VS Code workspace is open and focused.
+    
+    Opens the workspace only if it's not already open, then waits and ensures focus.
+    
+    Args:
+        workspace_path: Path to the .code-workspace file
+        workspace_name: Name of the workspace (e.g., 'subagent-1') for checking if open
+        wait_time: Time to wait after opening workspace (default: 10.0 seconds)
+    """
+    workspace_already_open = check_workspace_opened(workspace_name)
+    
+    if not workspace_already_open:
+        # Open the workspace since it's not already open
+        subprocess.Popen(f'code "{workspace_path}"', shell=True)
+        # Wait for workspace to load
+        time.sleep(wait_time)
+    
+    # Always ensure the workspace is focused by opening it again
+    subprocess.Popen(f'code "{workspace_path}"', shell=True)
+
+
 def copy_agent_config(
     subagent_dir: Path,
 ) -> dict:
@@ -255,20 +302,9 @@ def _launch_vscode_with_chat(
     Returns True on success, False on failure.
     """
     try:
-        workspace_path = str(
-            (subagent_dir / f"{subagent_dir.name}.code-workspace").resolve()
-        )
+        workspace_path = (subagent_dir / f"{subagent_dir.name}.code-workspace").resolve()
         messages_dir = subagent_dir / "messages"
 
-        # Open the workspace first
-        subprocess.Popen(f'code "{workspace_path}"', shell=True)
-        
-        # Small delay to let workspace open
-        time.sleep(1)
-        
-        # Open workspace again to ensure it's focused
-        subprocess.Popen(f'code "{workspace_path}"', shell=True)
-        
         # Write SudoLang prompt to a req.md file in the messages directory
         req_file = messages_dir / f"{timestamp}_req.md"
         req_file.write_text(sudolang_prompt, encoding='utf-8')
@@ -285,7 +321,11 @@ def _launch_vscode_with_chat(
         
         # Add a simple prompt that references the req.md file
         chat_cmd += f' "Follow instructions in {req_file.name}"'
+
+        # Ensure workspace is open and focused
+        ensure_workspace_focused(workspace_path, subagent_dir.name)
         
+        # Open the chat in VS Code
         subprocess.Popen(chat_cmd, shell=True)
         return True
             
@@ -334,6 +374,12 @@ def dispatch_agent(
                 file=sys.stderr,
             )
             return 1
+        
+        # Report which subagent will be used (before acquiring lock)
+        print(
+            f"info: Acquiring subagent: {subagent_dir.name}",
+            file=sys.stderr,
+        )
         
         # Generate unique ID and prepare directory
         chat_id = str(uuid.uuid4())[:8]
