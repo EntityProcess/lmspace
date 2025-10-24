@@ -200,7 +200,6 @@ def remove_subagent_lock(subagent_dir: Path) -> None:
 
 
 def wait_for_response_output(
-    response_file_tmp: Path,
     response_file_final: Path,
     *,
     poll_interval: float = 1.0,
@@ -474,7 +473,7 @@ def dispatch_agent(
             return 0
 
         # Sync mode: wait for response
-        response_received = wait_for_response_output(response_file_tmp, response_file_final)
+        response_received = wait_for_response_output(response_file_final)
         
         if not dry_run:
             try:

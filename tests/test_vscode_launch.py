@@ -90,7 +90,7 @@ def test_copy_agent_config(agent_template: Path, tmp_path: Path) -> None:
 
     assert "workspace" in result
     assert "messages_dir" in result
-    assert (subagent / "subagent.code-workspace").exists()
+    assert (subagent / "subagent-1.code-workspace").exists()
     assert (subagent / "messages").exists()
     assert (subagent / "messages").is_dir()
 
@@ -103,7 +103,7 @@ def test_copy_agent_config_uses_default_workspace(tmp_path: Path) -> None:
     # Should succeed using default workspace template
     result = copy_agent_config(subagent)
     assert "workspace" in result
-    assert (subagent / "subagent.code-workspace").exists()
+    assert (subagent / "subagent-1.code-workspace").exists()
 
 
 
