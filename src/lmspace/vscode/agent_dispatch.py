@@ -498,6 +498,86 @@ def dispatch_agent(
         return 1
 
 
+def list_subagents(
+    *,
+    subagent_root: Optional[Path] = None,
+    json_output: bool = False,
+) -> int:
+    """List all provisioned subagents and their status.
+    
+    Args:
+        subagent_root: Root directory containing subagents. Defaults to standard location.
+        json_output: When True, output results as JSON.
+    
+    Returns:
+        Exit code (0 for success, non-zero for failure)
+    """
+    if subagent_root is None:
+        subagent_root = get_subagent_root()
+    
+    if not subagent_root.exists():
+        if json_output:
+            print(json.dumps({"subagents": []}))
+        else:
+            print(f"No subagents found in {subagent_root}", file=sys.stderr)
+            print(
+                "hint: Provision subagents first with:\n"
+                "  lmspace code provision --subagents <count>",
+                file=sys.stderr,
+            )
+        return 1
+    
+    subagents = sorted(
+        (d for d in subagent_root.iterdir() if d.is_dir() and d.name.startswith("subagent-")),
+        key=lambda d: int(d.name.split("-")[1])
+    )
+    
+    if not subagents:
+        if json_output:
+            print(json.dumps({"subagents": []}))
+        else:
+            print(f"No subagents found in {subagent_root}", file=sys.stderr)
+            print(
+                "hint: Provision subagents first with:\n"
+                "  lmspace code provision --subagents <count>",
+                file=sys.stderr,
+            )
+        return 1
+    
+    subagent_list = []
+    for subagent_dir in subagents:
+        lock_file = subagent_dir / DEFAULT_LOCK_NAME
+        workspace_file = subagent_dir / f"{subagent_dir.name}.code-workspace"
+        is_locked = lock_file.exists()
+        workspace_exists = workspace_file.exists()
+        
+        subagent_info = {
+            "name": subagent_dir.name,
+            "path": str(subagent_dir),
+            "workspace": str(workspace_file) if workspace_exists else None,
+            "locked": is_locked,
+            "status": "locked" if is_locked else "available",
+        }
+        subagent_list.append(subagent_info)
+    
+    if json_output:
+        print(json.dumps({"subagents": subagent_list}, indent=2))
+    else:
+        locked_count = sum(1 for s in subagent_list if s["locked"])
+        available_count = len(subagent_list) - locked_count
+        
+        print(f"Found {len(subagent_list)} subagent(s) in {subagent_root}")
+        print(f"  Available: {available_count}")
+        print(f"  Locked: {locked_count}")
+        print()
+        
+        for info in subagent_list:
+            status_icon = "🔒" if info["locked"] else "✓"
+            print(f"{status_icon} {info['name']:15} {info['status']:10} {info['path']}")
+    
+    return 0
+
+
 def warmup_subagents(
     *,
     subagent_root: Optional[Path] = None,

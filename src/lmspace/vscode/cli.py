@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from .provision import provision_subagents, DEFAULT_TEMPLATE_DIR, DEFAULT_LOCK_NAME
-from .agent_dispatch import dispatch_agent, warmup_subagents, get_subagent_root
+from .agent_dispatch import dispatch_agent, warmup_subagents, list_subagents, get_subagent_root
 
 def add_provision_parser(subparsers: Any) -> None:
     """Add the 'provision' subcommand parser."""
@@ -143,6 +143,32 @@ def add_warmup_parser(subparsers: Any) -> None:
     )
 
 
+def add_list_parser(subparsers: Any) -> None:
+    """Add the 'list' subcommand parser."""
+    parser = subparsers.add_parser(
+        "list",
+        help="List all provisioned subagents and their status",
+        description=(
+            "Display information about all provisioned subagent workspaces, "
+            "including their locked/available status and paths."
+        ),
+    )
+    parser.add_argument(
+        "--target-root",
+        type=Path,
+        default=None,
+        help=(
+            "Root directory containing subagents. Defaults to "
+            "~/.lmspace/vscode-agents."
+        ),
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output results as JSON.",
+    )
+
+
 def add_unlock_parser(subparsers: Any) -> None:
     """Add the 'unlock' subcommand parser."""
     parser = subparsers.add_parser(
@@ -265,6 +291,15 @@ def handle_warmup(args: argparse.Namespace) -> int:
         subagent_root=subagent_root,
         subagents=args.subagents,
         dry_run=args.dry_run,
+    )
+
+
+def handle_list(args: argparse.Namespace) -> int:
+    """Handle the 'list' subcommand."""
+    subagent_root = args.target_root if args.target_root else get_subagent_root()
+    return list_subagents(
+        subagent_root=subagent_root,
+        json_output=args.json,
     )
 
 
