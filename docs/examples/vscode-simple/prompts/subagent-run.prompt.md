@@ -24,130 +24,88 @@ import { convertDocumentToImage } from "docx-skill.md"
 * When #runSubagent NOT available, use lmspace CLI executor
 * Analyze query dependencies, parallelize independent queries
 * Wait for all queries in a group before reading results
+* Auto-provision subagents when unavailable
+* Emit errors for failed dispatches, continue processing remaining queries
 
----
-
-# Execution Strategies
+## Execution Strategies
 
 Choose execution strategy based on tool availability.
 
-## Strategy 1: RunSubagent Tool (Preferred)
+### Strategy 1: RunSubagent Tool (Preferred)
 
-**When to use**: #runSubagent tool is available in your toolkit
+Use when #runSubagent tool is available. Pass query with file paths; let subagent read contents.
 
-**What to pass to subagent**:
-1. Primary instruction
-2. Import file paths
-4. DO NOT read file contents yourself
+### Strategy 2: Lmspace CLI Executor (Fallback)
 
----
+Use when #runSubagent NOT available.
 
-## Strategy 2: Lmspace CLI Executor (Fallback)
+**Dispatch pattern**:
+```
+lmspace code chat "<primary_instruction_path>" "<query>" -a "<import_path_1>" -a "<import_path_2>" ...
+```
 
-**When to use**: #runSubagent tool is NOT available
+**Wait pattern**: Synchronous barrier with configurable intervals
 
-**How to execute each query**:
-
-1. **Dispatch** - Run in background terminal:
-   ```
-   lmspace code chat "<primary_instruction_path>" "<query>" -a "<import_path_1>" -a "<import_path_2>" ...
-   ```
-   * Set isBackground=true
-   * Add `-a` flag for each import file path
-   * Capture JSON response with `response_file` field
-
-2. **Wait** - After dispatching ALL queries in group, run synchronous barrier:
-   ```
-   Start-Sleep -Seconds {isFirstWait ? initialWaitInterval : subsequentWaitInterval}
-   ```
-   * isBackground=false (blocks until complete)
-   * Use initialWaitInterval for first wait, subsequentWaitInterval after
-   * DO NOT poll terminals repeatedly
-
-3. **Read** - Use terminal command to read result files:
-   ```
-   Get-Content "{response_file}"
-   ```
+**Read pattern**: Retrieve results from response files
 
 ---
 
 # Execution Flow
 
 ```
-// 1. Identify primary instruction path (not the content, just the path)
-// Search for files ending in .prompt.md or .instructions.md
-primaryInstructionPath = findFiles("**/*.prompt.md")
-  |> selectRelevantPrompt(userContext)
+// Inferred functions
+fn findRelevantPrompt;
+fn extractImportPaths;
+fn analyzeQueryDependencies;
+fn formatAttachmentFlags;
+fn provisionSubagent;
+fn dispatchQuery;
+fn readResult;
 
-// If no relevant prompt found, dynamically generate instructions
-if (primaryInstructionPath == null) {
-  primaryInstructionPath = generateDynamicInstructions(userContext)
-}
+// 1. Resolve primary instruction
+primaryInstructionPath = findRelevantPrompt(userContext, "**/*.prompt.md")
+  |> default(generateDynamicInstructions(userContext))
 
-// 2. Extract import paths only
+// 2. Extract imports
 importPaths = extractImportPaths(primaryInstructionPath)
-// Only include paths from import statements, not attachments
 
-// 3. Choose strategy (do NOT execute yet, just choose)
-if (#runSubagent available) {
-  strategy = "runSubagent"
-} else {
-  strategy = "lmspaceCLI"
-}
+// 3. Determine strategy
+strategy = if (#runSubagent available) "runSubagent" else "lmspaceCLI"
 
-// 4. Parse and group queries
+// 4. Build query groups
 queryGroups = parseQueries(userInput) |> analyzeQueryDependencies
 
-// 5. Execute each group
+// 5. Execute groups with parallelization
 isFirstWait = true
 for each group in queryGroups {
   
-  // Dispatch all queries in parallel
+  // Parallel dispatch
   dispatches = for each query in group {
-    // Build file paths list (imports only, primary instruction is first positional arg)
-    allFilePaths = [...importPaths]
-    
-    if (strategy == "runSubagent") {
-      // Pass query and let subagent read files
-      call runSubagent(query, files=allFilePaths)
-    } else {
-      // Build CLI command with -a flags for each import
-      attachmentFlags = allFilePaths.map(path => `-a "${path}"`).join(" ")
-      dispatch = run(`lmspace code chat "${primaryInstructionPath}" "${query}" ${attachmentFlags}`, isBackground=true)
+    match (strategy) {
+      case "runSubagent" => 
+        runSubagent(query, files=importPaths)
       
-      // Check if dispatch failed due to no subagents
-      if (dispatch.exitCode != 0 && dispatch.output.contains("No unlocked subagents available")) {
-        // Provision a new subagent
-        run(`lmspace code provision --subagents 1`, isBackground=false)
-        // Retry dispatch
-        dispatch = run(`lmspace code chat "${primaryInstructionPath}" "${query}" ${attachmentFlags}`, isBackground=true)
-      }
-      
-      // If still failed, report error and stop
-      if (dispatch.exitCode != 0) {
-        emit("Error: Subagent dispatch failed - " + dispatch.output)
-        continue
-      }
-      
-      dispatch |> extract(response_file)
+      case "lmspaceCLI" =>
+        dispatchQuery(primaryInstructionPath, query, importPaths)
+          |> onError("No unlocked subagents") => {
+            provisionSubagent()
+            retry(dispatchQuery)
+          }
+          |> onError => emit("Error: $error") |> continue
     }
   }
   
-  // Wait for completion (only for lmspaceCLI strategy)
+  // Wait barrier (CLI only)
   if (strategy == "lmspaceCLI") {
-    currentWait = isFirstWait ? initialWaitInterval : subsequentWaitInterval
-    run(`Start-Sleep -Seconds ${currentWait}`, isBackground=false)
+    waitInterval = isFirstWait ? initialWaitInterval : subsequentWaitInterval
+    wait(waitInterval)
     isFirstWait = false
   }
   
-  // Read and emit results
+  // Emit results
   for each dispatch in dispatches {
-    if (strategy == "runSubagent") {
-      emit(dispatch.result)
-    } else {
-      result = run(`Get-Content "${dispatch.responseFile}"`)
-      emit(result)
-    }
+    result = readResult(dispatch, strategy)
+    emit(result)
   }
 }
 ```
