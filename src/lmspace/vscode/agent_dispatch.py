@@ -25,8 +25,8 @@ def get_subagent_root() -> Path:
 def get_all_subagent_workspaces(subagent_root: Path) -> list[Path]:
     """Get all subagent workspace files.
     
-    Returns a list of paths to all subagent.code-workspace files in the
-    subagent root directory, sorted by subagent number.
+    Returns a list of paths to all workspace files (e.g., subagent-1.code-workspace)
+    in the subagent root directory, sorted by subagent number.
     """
     if not subagent_root.exists():
         return []
@@ -38,7 +38,7 @@ def get_all_subagent_workspaces(subagent_root: Path) -> list[Path]:
     
     workspaces = []
     for subagent_dir in subagents:
-        workspace_file = subagent_dir / "subagent.code-workspace"
+        workspace_file = subagent_dir / f"{subagent_dir.name}.code-workspace"
         if workspace_file.exists():
             workspaces.append(workspace_file)
     
@@ -81,7 +81,7 @@ def copy_agent_config(
     if not workspace_src.exists():
         raise FileNotFoundError(f"Default workspace template not found: {workspace_src}")
 
-    workspace_dst = subagent_dir / "subagent.code-workspace"
+    workspace_dst = subagent_dir / f"{subagent_dir.name}.code-workspace"
     shutil.copy2(workspace_src, workspace_dst)
 
     messages_dir = subagent_dir / "messages"
@@ -256,7 +256,7 @@ def _launch_vscode_with_chat(
     """
     try:
         workspace_path = str(
-            (subagent_dir / "subagent.code-workspace").resolve()
+            (subagent_dir / f"{subagent_dir.name}.code-workspace").resolve()
         )
         messages_dir = subagent_dir / "messages"
 

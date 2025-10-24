@@ -165,7 +165,7 @@ def provision_subagents(
                         lock_file.unlink()
                     # Copy only the workspace file
                     workspace_src = template_path / "subagent.code-workspace"
-                    workspace_dst = subagent_dir / "subagent.code-workspace"
+                    workspace_dst = subagent_dir / f"{subagent_dir.name}.code-workspace"
                     shutil.copy2(workspace_src, workspace_dst)
                     created.append(subagent_dir)
                 else:
@@ -186,7 +186,7 @@ def provision_subagents(
                 subagent_dir.mkdir(parents=True, exist_ok=True)
                 # Copy only the workspace file
                 workspace_src = template_path / "subagent.code-workspace"
-                workspace_dst = subagent_dir / "subagent.code-workspace"
+                workspace_dst = subagent_dir / f"{subagent_dir.name}.code-workspace"
                 shutil.copy2(workspace_src, workspace_dst)
                 created.append(subagent_dir)
             subagents_provisioned += 1
@@ -203,7 +203,7 @@ def provision_subagents(
             subagent_dir.mkdir(parents=True, exist_ok=True)
             # Copy only the workspace file
             workspace_src = template_path / "subagent.code-workspace"
-            workspace_dst = subagent_dir / "subagent.code-workspace"
+            workspace_dst = subagent_dir / f"{subagent_dir.name}.code-workspace"
             shutil.copy2(workspace_src, workspace_dst)
             created.append(subagent_dir)
         subagents_provisioned += 1
